@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>'t Warm Buffet — Dashboard</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+    --div-pos:#2a78d6; --div-neg:#e34948;
+    --good:#0ca30c; --serious:#ec835a; --critical:#d03b3b; --good-text:#006300;
+    --seq-250:#86b6ef; --seq-400:#3987e5; --seq-550:#1c5cab; --seq-700:#0d366b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+      --div-pos:#3987e5; --div-neg:#e66767; --good-text:#0ca30c;
+      --seq-250:#6da7ec; --seq-400:#3987e5; --seq-550:#256abf; --seq-700:#184f95;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --div-pos:#3987e5; --div-neg:#e66767; --good-text:#0ca30c;
+    --seq-250:#6da7ec; --seq-400:#3987e5; --seq-550:#256abf; --seq-700:#184f95;
+  }
+  * { box-sizing:border-box; margin:0; }
+  body { font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--page); color:var(--ink); padding:24px; max-width:1180px; margin:0 auto; }
+  header { display:flex; flex-wrap:wrap; gap:12px; align-items:baseline; justify-content:space-between; margin-bottom:20px; }
+  h1 { font-size:22px; } h1 small { color:var(--muted); font-weight:400; font-size:13px; margin-left:8px; }
+  h2 { font-size:15px; margin-bottom:10px; color:var(--ink); }
+  .controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  select,button { font:inherit; padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--ink); cursor:pointer; }
+  button.primary { background:var(--s1); color:#fff; border-color:transparent; font-weight:600; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .card .k { font-size:12px; color:var(--ink2); } .card .v { font-size:24px; font-weight:650; margin-top:2px; }
+  .card .d { font-size:12px; margin-top:2px; color:var(--muted); }
+  .panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:20px; overflow-x:auto; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; } @media (max-width:900px){ .grid2{grid-template-columns:1fr} }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; }
+  th { text-align:left; color:var(--muted); font-weight:500; font-size:12px; border-bottom:1px solid var(--grid); padding:6px 8px; }
+  td { padding:6px 8px; border-bottom:1px solid var(--grid); }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .pos { color:var(--good-text); } .neg { color:var(--critical); }
+  .chip { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:baseline; }
+  svg text { font:12px system-ui,sans-serif; fill:var(--muted); }
+  svg .lbl { fill:var(--ink2); font-weight:600; }
+  .tip { position:fixed; pointer-events:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 14px rgba(0,0,0,.18); padding:8px 10px; font-size:12.5px; display:none; z-index:9; max-width:260px; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:12.5px; color:var(--ink2); margin-bottom:8px; }
+  .rangebar { display:flex; gap:4px; }
+  .rangebar button { padding:3px 10px; font-size:12.5px; border-radius:99px; border:1px solid transparent; background:transparent; color:var(--ink2); }
+  .rangebar button:hover { background:var(--grid); }
+  .rangebar button.active { background:var(--s1); color:#fff; font-weight:600; }
+  .newsitem { padding:10px 0; border-bottom:1px solid var(--grid); font-size:13.5px; }
+  .newsitem b a { color:var(--ink); text-decoration:none; } .newsitem b a:hover { text-decoration:underline; }
+  .newsitem .meta { color:var(--muted); font-size:12px; }
+  .sent { font-size:11px; padding:1px 8px; border-radius:99px; font-weight:600; margin-right:6px; white-space:nowrap; }
+  .sent-positive { color:#fff; background:var(--good); }
+  .sent-negative { color:#fff; background:var(--critical); }
+  .sent-mixed    { color:#fff; background:var(--serious); }
+  .sent-neutral  { color:var(--ink2); background:var(--grid); }
+  details.digest pre-wrap { white-space:pre-wrap; }
+  .note { color:var(--muted); font-size:12px; margin-top:8px; }
+  #digestmd { font-size:14px; } #digestmd h1,#digestmd h2 { margin:14px 0 6px; } #digestmd table { margin:8px 0; }
+  dialog { border:1px solid var(--border); border-radius:12px; background:var(--surface); color:var(--ink); padding:20px; max-width:520px; }
+  code { background:var(--page); border:1px solid var(--border); border-radius:6px; padding:1px 6px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🍲 't Warm Buffet <small id="gendate"></small></h1>
+  <div class="controls">
+    <label for="cmp" style="color:var(--ink2);font-size:13px">Vergelijk met:</label>
+    <select id="cmp"></select>
+    <button id="theme" title="thema">◐</button>
+    <button class="primary" id="rundigest">▶ Nieuwe digest</button>
+  </div>
+</header>
+
+<div class="cards" id="cards"></div>
+
+<div class="panel">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+    <h2>Portefeuillewaarde per vergadering</h2>
+    <div class="rangebar" id="rangebar"></div>
+  </div>
+  <div class="legend" id="leg-area"></div><div id="areachart"></div>
+</div>
+
+<div class="panel">
+  <h2>Posities <span style="color:var(--muted);font-weight:400" id="cmp-label"></span></h2>
+  <table id="holdings"></table>
+  <div class="note">Δ vergadering = koersverandering t.o.v. de geselecteerde vergadering. “Live” = laatste beurskoers bij export.</div>
+</div>
+
+<div class="grid2">
+  <div class="panel"><h2>Δ sinds geselecteerde vergadering</h2><div id="divchart"></div></div>
+  <div class="panel"><h2>Gewicht in portefeuille</h2><div id="allocchart"></div></div>
+</div>
+
+<div class="panel"><h2>Rendement vs. benchmarks</h2><div class="legend" id="leg-bench"></div><div id="benchchart"></div><div class="note">Cumulatief rendement zoals bijgehouden in het rendementsblad (recente vergaderingen).</div></div>
+
+<div class="grid2">
+  <div class="panel">
+    <h2>😱 FOMO — verkocht, maar bleef stijgen</h2>
+    <table id="fomo"></table>
+    <div class="note">Gemiste winst = (koers nu − koers laatste vergadering vóór verkoop) × aantal aandelen, split-gecorrigeerd, in EUR.</div>
+  </div>
+  <div class="panel">
+    <h2>😅 DAB — Dodged A Bullet</h2>
+    <table id="dab"></table>
+    <div class="note">Vermeden verlies sinds de verkoop, zelfde methode. Exitkoers = laatste vergaderkoers, niet de exacte verkoopkoers.</div>
+  </div>
+</div>
+
+<div class="panel"><h2>Nieuws per positie</h2><div id="news"></div></div>
+
+<div class="panel"><details class="digest"><summary style="cursor:pointer"><b>Laatste digest</b> <span id="digestmeta" style="color:var(--muted)"></span></summary><div id="digestmd"></div></details></div>
+
+<dialog id="digestdlg">
+  <h2>Data verversen / digest draaien</h2>
+  <p style="margin:10px 0"><b>Cijfers verversen</b> (koersen + grafieken, draait automatisch elke werkdag om 07:30):</p>
+  <p><a href="https://github.com/bkb1a/warm-buffet/actions/workflows/refresh.yml" target="_blank" rel="noopener">→ Start de "Refresh dashboard"-workflow op GitHub</a> (knop "Run workflow")</p>
+  <p style="margin:10px 0"><b>Volledige digest met nieuws</b> (na een nieuwe vergadering) draait via Claude op Andreas' machine:</p>
+  <p><code>claude "/portfolio-digest"</code> → daarna <code>git push</code></p>
+  <button onclick="this.closest('dialog').close()" style="margin-top:10px">Sluiten</button>
+</dialog>
+<div class="tip" id="tip"></div>
+
+<script>
+const eur = n => n==null ? "—" : n.toLocaleString("nl-BE",{maximumFractionDigits:0}) + " €";
+const pct = (n,d=1) => n==null ? "—" : (n>0?"+":"") + (100*n).toFixed(d) + "%";
+const cls = n => n==null ? "" : (n>=0 ? "pos" : "neg");
+const el = id => document.getElementById(id);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const tip = el("tip");
+function showTip(ev,html){ tip.innerHTML=html; tip.style.display="block"; tip.style.left=Math.min(ev.clientX+14,innerWidth-280)+"px"; tip.style.top=(ev.clientY+14)+"px"; }
+function hideTip(){ tip.style.display="none"; }
+
+el("theme").onclick = () => {
+  const r=document.documentElement, dark=matchMedia("(prefers-color-scheme: dark)").matches;
+  const cur=r.dataset.theme || (dark?"dark":"light");
+  r.dataset.theme = cur==="dark" ? "light" : "dark"; render();
+};
+el("rundigest").onclick = () => el("digestdlg").showModal();
+
+let D=null, cmpDate=null;
+fetch("data/dashboard.json").then(r=>r.json()).then(d=>{ D=d; init(); }).catch(()=>{ document.body.insertAdjacentHTML("afterbegin","<p style='color:var(--critical)'>data/dashboard.json niet gevonden — draai export_dashboard.py</p>"); });
+
+function init(){
+  const dates = D.portfolio_totals.map(t=>t.meeting_date);
+  const prev = dates[dates.length-2];
+  el("cmp").innerHTML = dates.slice(0,-1).reverse().map(d=>`<option ${d===prev?"selected":""}>${d}</option>`).join("");
+  el("cmp").onchange = e => { cmpDate=e.target.value; render(); };
+  cmpDate = prev;
+  el("gendate").textContent = "bijgewerkt " + D.generated_at;
+  render();
+}
+
+function snapsAt(date){ const m={}; D.snapshots.filter(s=>s.meeting_date===date).forEach(s=>m[s.holding_name]=s); return m; }
+
+function render(){
+  const dates = D.portfolio_totals.map(t=>t.meeting_date);
+  const latest = dates[dates.length-1];
+  const tot = D.portfolio_totals[D.portfolio_totals.length-1];
+  const cmpTot = D.portfolio_totals.find(t=>t.meeting_date===cmpDate);
+  const cur = snapsAt(latest), old = snapsAt(cmpDate);
+  el("cmp-label").textContent = `— ${latest} t.o.v. ${cmpDate}`;
+
+  // stat tiles
+  const dTot = cmpTot && cmpTot.total_value_eur ? tot.total_value_eur/cmpTot.total_value_eur-1 : null;
+  el("cards").innerHTML = [
+    ["Totale portefeuille", eur(tot.total_value_eur), dTot==null?"":`<span class="${cls(dTot)}">${pct(dTot)}</span> vs ${cmpDate}`],
+    ["Effecten", eur(tot.securities_value_eur), ""],
+    ["Cash", eur(tot.cash_eur), pct(tot.cash_eur/tot.total_value_eur,0)+" van totaal"],
+    ["Valuta", (100*tot.eur_exposure).toFixed(0)+"% EUR", (100*tot.usd_exposure).toFixed(0)+"% USD"],
+    ["Rendement portefeuille", pct(tot.return_portfolio), `S&amp;P ${pct(tot.return_sp500)} · MSCI ${pct(tot.return_msci_world)}`],
+  ].map(([k,v,d])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join("");
+
+  // holdings table
+  const rows = Object.values(cur).sort((a,b)=>b.value_eur-a.value_eur);
+  const secTotal = rows.reduce((a,s)=>a+(s.value_eur||0),0);
+  rows.forEach(s=>{ if(s.weight==null && s.value_eur) s.weight = s.value_eur/secTotal; });
+  el("holdings").innerHTML = `<tr><th>Positie</th><th class="num">Aantal</th><th class="num">Koers</th><th class="num">Live</th><th class="num">Waarde €</th><th class="num">Gewicht</th><th class="num">Δ vergadering</th><th class="num">Δ sinds aankoop</th></tr>` +
+    rows.map(s=>{
+      const h=D.holdings.find(h=>h.name===s.holding_name)||{};
+      const live=h.ticker?D.live_prices_active[h.ticker]:null;
+      const dl = live&&s.price ? live/s.price-1 : null;
+      const o=old[s.holding_name];
+      const dm = o&&o.price&&s.price ? s.price/o.price-1 : null;
+      return `<tr><td>${s.holding_name}${h.ticker?` <span style="color:var(--muted);font-size:11px">${h.ticker}</span>`:""}</td>
+        <td class="num">${s.shares??"—"}</td><td class="num">${s.price??"—"}</td>
+        <td class="num">${live?live.toFixed(2):"—"}${dl!=null?` <span class="${cls(dl)}" style="font-size:11px">${pct(dl)}</span>`:""}</td>
+        <td class="num">${eur(s.value_eur)}</td><td class="num">${s.weight!=null?pct(s.weight):"—"}</td>
+        <td class="num ${cls(dm)}">${pct(dm)}</td><td class="num ${cls(s.unrealized_pnl_pct)}">${pct(s.unrealized_pnl_pct)}</td></tr>`;
+    }).join("");
+
+  areaChart(); divChart(rows,old); allocChart(rows); benchChart(); fomoDab(); newsList(); digest();
+}
+
+/* ---- weekly value line with meeting markers ---- */
+let range="MAX";
+const RANGES={ "1M":30, "3M":91, "6M":182, "YTD":null, "1Y":365, "5Y":1826, "MAX":Infinity };
+function rangeBar(){
+  el("rangebar").innerHTML=Object.keys(RANGES).map(r=>`<button class="${r===range?"active":""}" onclick="range='${r}';rangeBar();areaChart()">${r}</button>`).join("");
+}
+function rangeCutoff(lastWeek){
+  if(range==="MAX") return "0000";
+  const last=new Date(lastWeek);
+  if(range==="YTD") return lastWeek.slice(0,4)+"-01-01";
+  last.setDate(last.getDate()-RANGES[range]);
+  return last.toISOString().slice(0,10);
+}
+function areaChart(){
+  let Wk=D.weekly_value||[];
+  if(!Wk.length){ areaChartMeetingsOnly(); return; }
+  rangeBar();
+  const cut=rangeCutoff(Wk[Wk.length-1].week);
+  Wk=Wk.filter(w=>w.week>=cut);
+  if(Wk.length<2){ el("areachart").innerHTML="<div class='note'>Te weinig weekdata in deze periode.</div>"; return; }
+  const W=1080,H=280,P={l:56,r:16,t:16,b:28};
+  const xs=i=>P.l+(W-P.l-P.r)*i/(Wk.length-1);
+  const zoom=!(range==="MAX"||range==="5Y");  // short windows: padded min instead of a zero baseline
+  const vmax=Math.max(...Wk.map(w=>w.securities_eur)), vmin=Math.min(...Wk.map(w=>w.securities_eur));
+  const min=zoom?Math.max(0,vmin-(vmax-vmin||vmax*.02)*.25):0;
+  const max=vmax+(vmax-min)*.06;
+  const ys=v=>H-P.b-(H-P.t-P.b)*(v-min)/(max-min);
+  const c1=css("--s1"), c2=css("--s2"), sur=css("--surface");
+  const step=[1000,2500,5000,10000,25000,50000].find(s=>(max-min)/s<=6)||50000;
+  let g="";
+  for(let v=Math.ceil(min/step)*step;v<max;v+=step) g+=`<line x1="${P.l}" x2="${W-P.r}" y1="${ys(v)}" y2="${ys(v)}" stroke="${css("--grid")}"/><text x="${P.l-8}" y="${ys(v)+4}" text-anchor="end">${v/1000}k</text>`;
+  const pts=Wk.map((w,i)=>[xs(i),ys(w.securities_eur)]);
+  const path=pts.map((q,i)=>(i?"L":"M")+q[0].toFixed(1)+","+q[1].toFixed(1)).join("");
+  const area=zoom?"":`<path d="${path} L${xs(Wk.length-1)},${ys(min)} L${xs(0)},${ys(min)} Z" fill="${c1}" opacity=".12"/>`;
+  const line=`<path d="${path}" fill="none" stroke="${c1}" stroke-width="2"/>`;
+  const marks=Wk.map((w,i)=>w.meeting?`<g onmousemove='showTip(event,"<b>Vergadering ${w.meeting}</b><br>Effecten ${eur(w.securities_eur)}${w.cash_eur!=null?"<br>Cash "+eur(w.cash_eur):""}")' onmouseleave="hideTip()">
+      <line x1="${xs(i)}" x2="${xs(i)}" y1="${ys(w.securities_eur)}" y2="${H-P.b}" stroke="${c2}" stroke-width="1" opacity=".35"/>
+      <circle cx="${xs(i)}" cy="${ys(w.securities_eur)}" r="4.5" fill="${c2}" stroke="${sur}" stroke-width="2"/></g>`:"").join("");
+  const MND=["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+  const ticks={};
+  if(Wk.length>110){ Wk.forEach((w,i)=>{const y=w.week.slice(0,4); if(!(y in ticks)) ticks[y]=i;}); }
+  else { Wk.forEach((w,i)=>{const k=w.week.slice(0,7); if(!(k in ticks)) ticks[k]=i;}); }
+  const tickEntries=Object.entries(ticks);
+  const every=Math.ceil(tickEntries.length/10);
+  const xt=tickEntries.filter((_,i)=>i%every===0).filter(([,i])=>xs(i)<W-46).map(([k,i])=>`<text x="${xs(i)}" y="${H-8}" text-anchor="middle">${k.length===4?k:MND[+k.slice(5,7)-1]+" ’"+k.slice(2,4)}</text>`).join("");
+  const last=Wk[Wk.length-1];
+  const lbl=`<text class="lbl" x="${W-P.r}" y="${ys(last.securities_eur)-10}" text-anchor="end">${eur(last.securities_eur)}</text>`;
+  el("leg-area").innerHTML=`<span><span class="chip" style="background:${c1}"></span>Effectenwaarde (wekelijks, week-open/close gemiddelde)</span><span><span class="chip" style="background:${c2};border-radius:99px"></span>Vergadering</span>`;
+  el("areachart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">${g}${area}${line}
+    <line x1="${P.l}" x2="${W-P.r}" y1="${H-P.b}" y2="${H-P.b}" stroke="${css("--axis")}"/>${xt}
+    ${Wk.map((w,i)=>`<rect x="${xs(i)-(W-P.l-P.r)/(Wk.length-1)/2}" y="${P.t}" width="${(W-P.l-P.r)/(Wk.length-1)}" height="${H-P.t-P.b}" fill="transparent"
+      onmousemove='showTip(event,"<b>week ${w.week}</b><br>Effecten ${eur(w.securities_eur)}${w.meeting?"<br>📌 vergadering "+w.meeting:""}")' onmouseleave="hideTip()"/>`).join("")}
+    ${marks}${lbl}</svg>`;
+}
+/* fallback when weekly data is not yet backfilled */
+function areaChartMeetingsOnly(){
+  const T=D.portfolio_totals.filter(t=>t.total_value_eur), W=1080,H=260,P={l:56,r:16,t:14,b:26};
+  const xs=i=>P.l+(W-P.l-P.r)*i/(T.length-1);
+  const max=Math.max(...T.map(t=>t.total_value_eur))*1.06, ys=v=>H-P.b-(H-P.t-P.b)*v/max;
+  const c1=css("--s1");
+  const pts=T.map((t,i)=>[xs(i),ys(t.total_value_eur)]);
+  const path=pts.map((q,i)=>(i?"L":"M")+q[0].toFixed(1)+","+q[1].toFixed(1)).join("");
+  el("leg-area").innerHTML=`<span><span class="chip" style="background:${c1}"></span>Totaal per vergadering (weekdata nog niet gebackfilld)</span>`;
+  el("areachart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%"><path d="${path}" fill="none" stroke="${c1}" stroke-width="2"/>
+    ${T.map((t,i)=>`<circle cx="${xs(i)}" cy="${ys(t.total_value_eur)}" r="3.5" fill="${c1}"
+      onmousemove='showTip(event,"<b>${t.meeting_date}</b><br>${eur(t.total_value_eur)}")' onmouseleave="hideTip()"/>`).join("")}</svg>`;
+}
+
+/* ---- diverging bars: Δ vs selected meeting ---- */
+function divChart(rows,old){
+  const data=rows.map(s=>{const o=old[s.holding_name];return {n:s.holding_name,v:o&&o.price&&s.price?s.price/o.price-1:null};}).filter(d=>d.v!=null).sort((a,b)=>b.v-a.v);
+  if(!data.length){ el("divchart").innerHTML="<div class='note'>Geen overlappende posities met deze vergadering.</div>"; return; }
+  const W=520,rh=24,P={l:8,r:64,t:6,b:6},H=P.t+P.b+data.length*rh;
+  const ext=Math.max(...data.map(d=>Math.abs(d.v)))||.01, x0=W/2, sx=v=>x0+v/(ext*1.08)*(W/2-P.r);
+  el("divchart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">
+    <line x1="${x0}" x2="${x0}" y1="${P.t}" y2="${H-P.b}" stroke="${css("--axis")}"/>
+    ${data.map((d,i)=>{const y=P.t+i*rh, pos=d.v>=0, x=Math.min(x0,sx(d.v)), w=Math.max(Math.abs(sx(d.v)-x0),1.5);
+      return `<g onmousemove='showTip(event,"<b>${d.n.replace(/"/g,"&quot;")}</b><br>${pct(d.v)} sinds ${cmpDate}")' onmouseleave="hideTip()">
+        <rect x="${x}" y="${y+5}" width="${w}" height="12" rx="4" fill="${pos?css("--div-pos"):css("--div-neg")}"/>
+        <text x="${pos?x0-6:x0+6}" y="${y+15}" text-anchor="${pos?"end":"start"}">${d.n.length>26?d.n.slice(0,25)+"…":d.n}</text>
+        <text class="lbl" x="${pos?sx(d.v)+5:sx(d.v)-5}" y="${y+15}" text-anchor="${pos?"start":"end"}">${pct(d.v)}</text></g>`;}).join("")}</svg>`;
+}
+
+/* ---- allocation: sequential single-hue bars ---- */
+function allocChart(rows){
+  const data=rows.filter(s=>s.value_eur).sort((a,b)=>b.value_eur-a.value_eur);
+  const total=data.reduce((a,s)=>a+s.value_eur,0);
+  const W=520,rh=24,P={l:190,r:56,t:6,b:6},H=P.t+P.b+data.length*rh;
+  const max=data[0].value_eur, steps=[css("--seq-700"),css("--seq-550"),css("--seq-400"),css("--seq-250")];
+  el("allocchart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">
+    ${data.map((s,i)=>{const y=P.t+i*rh,w=Math.max((W-P.l-P.r)*s.value_eur/max,2),c=steps[Math.min(3,Math.floor(i/Math.ceil(data.length/4)))];
+      return `<g onmousemove='showTip(event,"<b>${s.holding_name.replace(/"/g,"&quot;")}</b><br>${eur(s.value_eur)} · ${pct(s.value_eur/total)}")' onmouseleave="hideTip()">
+        <text x="${P.l-8}" y="${y+15}" text-anchor="end">${s.holding_name.length>24?s.holding_name.slice(0,23)+"…":s.holding_name}</text>
+        <rect x="${P.l}" y="${y+5}" width="${w}" height="12" rx="4" fill="${c}"/>
+        <text class="lbl" x="${P.l+w+6}" y="${y+15}">${pct(s.value_eur/total)}</text></g>`;}).join("")}</svg>`;
+}
+
+/* ---- benchmark lines (4 series, direct-labeled) ---- */
+function benchChart(){
+  const T=D.portfolio_totals.filter(t=>t.return_portfolio!=null);
+  if(T.length<2){ el("benchchart").innerHTML="<div class='note'>Benchmarkdata pas beschikbaar vanaf recente vergaderingen.</div>"; return; }
+  const series=[["Portefeuille","return_portfolio","--s1"],["S&P 500","return_sp500","--s2"],["MSCI World","return_msci_world","--s3"],["Eurostoxx 50","return_eurostoxx50","--s4"]];
+  const W=1080,H=240,P={l:52,r:120,t:14,b:26};
+  const vals=series.flatMap(([,k])=>T.map(t=>t[k]).filter(v=>v!=null));
+  const min=Math.min(0,...vals), max=Math.max(...vals)*1.08;
+  const xs=i=>P.l+(W-P.l-P.r)*i/(T.length-1), ys=v=>H-P.b-(H-P.t-P.b)*(v-min)/(max-min);
+  let g="";
+  for(const v of [0,.1,.2,.3]) if(v<max) g+=`<line x1="${P.l}" x2="${W-P.r}" y1="${ys(v)}" y2="${ys(v)}" stroke="${css("--grid")}"/><text x="${P.l-8}" y="${ys(v)+4}" text-anchor="end">${v*100}%</text>`;
+  const lines=series.map(([name,k,cv])=>{
+    const pts=T.map((t,i)=>t[k]!=null?[xs(i),ys(t[k])]:null).filter(Boolean);
+    const p=pts.map((q,i)=>(i?"L":"M")+q[0].toFixed(1)+","+q[1].toFixed(1)).join("");
+    const last=pts[pts.length-1];
+    return `<path d="${p}" fill="none" stroke="${css(cv)}" stroke-width="2"/><circle cx="${last[0]}" cy="${last[1]}" r="4" fill="${css(cv)}" stroke="${css("--surface")}" stroke-width="2"/><text class="lbl" x="${last[0]+8}" y="${last[1]+4}">${name}</text>`;
+  }).join("");
+  const xt=T.map((t,i)=>i%Math.ceil(T.length/6)===0?`<text x="${xs(i)}" y="${H-8}" text-anchor="middle">${t.meeting_date.slice(5)+"·"+t.meeting_date.slice(2,4)}</text>`:"").join("");
+  el("leg-bench").innerHTML=series.map(([n,,c])=>`<span><span class="chip" style="background:${css(c)}"></span>${n}</span>`).join("");
+  el("benchchart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">${g}${lines}${xt}
+    ${T.map((t,i)=>`<rect x="${xs(i)-((W-P.l-P.r)/(T.length-1))/2}" y="${P.t}" width="${(W-P.l-P.r)/(T.length-1)}" height="${H-P.t-P.b}" fill="transparent"
+      onmousemove='showTip(event,"<b>${t.meeting_date}</b><br>${series.map(([n,k])=>t[k]!=null?n+" "+pct(t[k]):"").filter(Boolean).join("<br>")}")' onmouseleave="hideTip()"/>`).join("")}</svg>`;
+}
+
+/* ---- FOMO / DAB ---- */
+function fomoDab(){
+  const row=(e,sign)=>{
+    if(e.change_pct==null) return `<tr style="opacity:.55"><td>${e.name}</td><td colspan="3" style="font-size:12px;color:var(--muted)">${e.note||""}</td></tr>`;
+    const c=sign>0?"neg":"pos";  // missed gain hurts (red); avoided loss is good (green)
+    return `<tr><td>${e.name} <span style="color:var(--muted);font-size:11px">${e.ticker}</span>${e.note?` <span style="color:var(--muted);font-size:11px">(${e.note})</span>`:""}</td>
+      <td class="num">${e.exit_date}</td><td class="num ${cls(e.change_pct)}">${pct(e.change_pct)}</td>
+      <td class="num ${c}"><b>${sign>0?"−":"+"}${eur(Math.abs(e.impact_eur))}</b></td></tr>`;
+  };
+  const head=lab=>`<tr><th>Positie</th><th class="num">Verkocht*</th><th class="num">Koers sindsdien</th><th class="num">${lab}</th></tr>`;
+  el("fomo").innerHTML=head("Gemiste winst")+D.fomo.map(e=>row(e,1)).join("");
+  el("dab").innerHTML=head("Vermeden verlies")+D.dab.map(e=>row(e,-1)).join("");
+}
+
+/* ---- news & digest ---- */
+function newsList(){
+  const SENT={positive:"📈 positief",negative:"📉 negatief",neutral:"⚖️ neutraal",mixed:"🔀 gemengd"};
+  el("news").innerHTML=D.news.slice(0,20).map(n=>`<div class="newsitem">
+    <span class="sent sent-${n.sentiment||"neutral"}">${SENT[n.sentiment]||n.sentiment||""}</span><b><a href="${n.url}" target="_blank" rel="noopener">${n.headline}</a></b>
+    <div>${n.summary||""}</div><div class="meta">${n.holding_name} · ${n.source||""} · ${n.published_at||""}</div></div>`).join("") || "<div class='note'>Nog geen nieuwsitems — draai de digest.</div>";
+}
+function digest(){
+  if(!D.latest_digest){ el("digestmeta").textContent="— nog geen digest"; return; }
+  el("digestmeta").textContent=`(${D.latest_digest.period_start} → ${D.latest_digest.period_end})`;
+  el("digestmd").innerHTML=mdToHtml(D.latest_digest.markdown_content);
+}
+function mdToHtml(md){
+  const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  const inline=s=>esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>").replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  const lines=md.split("\n"); let out="",intab=false,inul=false;
+  for(const L of lines){
+    if(/^\|/.test(L)){ if(/^\|[\s\-:|]+\|$/.test(L)) continue;
+      if(!intab){ out+="<table>"; intab=true; }
+      out+="<tr>"+L.split("|").slice(1,-1).map(c=>`<td>${inline(c.trim())}</td>`).join("")+"</tr>"; continue; }
+    if(intab){ out+="</table>"; intab=false; }
+    if(/^[-*] /.test(L)){ if(!inul){out+="<ul>";inul=true;} out+=`<li>${inline(L.slice(2))}</li>`; continue; }
+    if(inul){ out+="</ul>"; inul=false; }
+    if(/^### /.test(L)) out+=`<h4>${inline(L.slice(4))}</h4>`;
+    else if(/^## /.test(L)) out+=`<h3>${inline(L.slice(3))}</h3>`;
+    else if(/^# /.test(L)) out+=`<h2>${inline(L.slice(2))}</h2>`;
+    else if(/^\d+\. /.test(L)) out+=`<div>${inline(L)}</div>`;
+    else if(L.trim()) out+=`<p>${inline(L)}</p>`;
+  }
+  if(intab) out+="</table>"; if(inul) out+="</ul>";
+  return out;
+}
+</script>
+</body>
+</html>
