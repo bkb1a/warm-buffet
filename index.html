@@ -83,6 +83,8 @@
     .cards { grid-template-columns:repeat(2,1fr); gap:8px; }
     .card .v { font-size:19px; }
     header { gap:8px; }
+    svg text { font-size:15px; }
+    svg .lbl { font-size:15px; }
   }
 </style>
 </head>
@@ -124,7 +126,12 @@
   <div class="panel"><h2>Gewicht in portefeuille</h2><div id="allocchart"></div></div>
 </div>
 
-<div class="panel"><h2>Rendement vs. benchmarks</h2><div class="legend" id="leg-bench"></div><div id="benchchart"></div><div class="note">Wekelijks, sinds de herstart bij Bolero (16/07/2025). Portefeuille = tijdgewogen rendement over effecten + cash, gecorrigeerd voor stortingen; USD-indices omgerekend naar EUR.</div></div>
+<div class="panel">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+    <h2>Rendement vs. benchmarks</h2>
+    <div class="rangebar" id="rangebar2"></div>
+  </div>
+  <div class="legend" id="leg-bench"></div><div id="benchchart"></div><div class="note">Wekelijks. MAX = sinds de herstart bij Bolero (16/07/2025); bij een kortere periode wordt het rendement herrekend vanaf het begin van dat venster. Portefeuille = tijdgewogen rendement over effecten + cash, gecorrigeerd voor stortingen; USD-indices omgerekend naar EUR.</div></div>
 
 <div class="grid2">
   <div class="panel">
@@ -244,23 +251,25 @@ function render(){
 }
 
 /* ---- weekly value line with meeting markers ---- */
-let range="MAX";
+let range="MAX", benchRange="MAX";
 const RANGES={ "1M":30, "3M":91, "6M":182, "YTD":null, "1Y":365, "5Y":1826, "MAX":Infinity };
-function rangeBar(){
-  el("rangebar").innerHTML=Object.keys(RANGES).map(r=>`<button class="${r===range?"active":""}" onclick="range='${r}';rangeBar();areaChart()">${r}</button>`).join("");
+function rangeBar(barId,current,setter){
+  el(barId).innerHTML=Object.keys(RANGES).map(r=>`<button class="${r===current?"active":""}" onclick="${setter}('${r}')">${r}</button>`).join("");
 }
-function rangeCutoff(lastWeek){
-  if(range==="MAX") return "0000";
+function setRange(r){ range=r; areaChart(); }
+function setBenchRange(r){ benchRange=r; benchChart(); }
+function rangeCutoff(lastWeek,r){
+  if(r==="MAX") return "0000";
   const last=new Date(lastWeek);
-  if(range==="YTD") return lastWeek.slice(0,4)+"-01-01";
-  last.setDate(last.getDate()-RANGES[range]);
+  if(r==="YTD") return lastWeek.slice(0,4)+"-01-01";
+  last.setDate(last.getDate()-RANGES[r]);
   return last.toISOString().slice(0,10);
 }
 function areaChart(){
   let Wk=D.weekly_value||[];
   if(!Wk.length){ areaChartMeetingsOnly(); return; }
-  rangeBar();
-  const cut=rangeCutoff(Wk[Wk.length-1].week);
+  rangeBar("rangebar",range,"setRange");
+  const cut=rangeCutoff(Wk[Wk.length-1].week,range);
   Wk=Wk.filter(w=>w.week>=cut);
   if(Wk.length<2){ el("areachart").innerHTML="<div class='note'>Te weinig weekdata in deze periode.</div>"; return; }
   // reserve future slots up to the planned next meeting so it can be plotted
@@ -269,7 +278,7 @@ function areaChart(){
     futureSlots=Math.min(30,Math.ceil((new Date(NEXT.next_meeting)-new Date(Wk[Wk.length-1].week))/(7*86400000)));
     nextIdx=Wk.length-1+futureSlots;
   }
-  const W=chartW("areachart"),H=W<640?230:280,P={l:46,r:14,t:16,b:28};
+  const W=chartW("areachart"),H=W<640?230:280,P={l:W<640?54:46,r:14,t:16,b:30};
   const slots=Wk.length-1+futureSlots;
   const xs=i=>P.l+(W-P.l-P.r)*i/slots;
   const zoom=!(range==="MAX"||range==="5Y");  // short windows: padded min instead of a zero baseline
@@ -352,18 +361,30 @@ function allocChart(rows){
 /* ---- benchmark lines (4 series, direct-labeled) ---- */
 function benchChart(){
   const weekly=(D.benchmark_series||[]).length>=2;
-  const T=weekly?D.benchmark_series:D.portfolio_totals.filter(t=>t.return_portfolio!=null);
-  if(T.length<2){ el("benchchart").innerHTML="<div class='note'>Benchmarkdata pas beschikbaar vanaf recente vergaderingen.</div>"; return; }
+  let T=weekly?D.benchmark_series:D.portfolio_totals.filter(t=>t.return_portfolio!=null);
+  if(weekly){
+    rangeBar("rangebar2",benchRange,"setBenchRange");
+    T=T.filter(t=>t.week>=rangeCutoff(T[T.length-1].week,benchRange));
+    if(benchRange!=="MAX"&&T.length>1){
+      const b=T[0];  // re-base returns to the window start
+      T=T.map(t=>{const o={...t};
+        for(const k of ["portfolio","sp500","msci_world","eurostoxx50"])
+          o[k]=(t[k]!=null&&b[k]!=null)?(1+t[k])/(1+b[k])-1:null;
+        return o;});
+    }
+  }
+  if(T.length<2){ el("benchchart").innerHTML="<div class='note'>Te weinig data in deze periode.</div>"; return; }
   const series=weekly
     ?[["Portefeuille","portfolio","--s1"],["S&P 500 (€)","sp500","--s2"],["MSCI World (€)","msci_world","--s3"],["Eurostoxx 50","eurostoxx50","--s4"]]
     :[["Portefeuille","return_portfolio","--s1"],["S&P 500","return_sp500","--s2"],["MSCI World","return_msci_world","--s3"],["Eurostoxx 50","return_eurostoxx50","--s4"]];
   T.forEach(t=>{ if(!t.meeting_date) t.meeting_date=t.week; });
-  const W=chartW("benchchart"),small=W<640,H=small?220:240,P={l:44,r:small?14:118,t:14,b:26};
+  const W=chartW("benchchart"),small=W<640,H=small?220:240,P={l:small?54:44,r:small?14:118,t:14,b:28};
   const vals=series.flatMap(([,k])=>T.map(t=>t[k]).filter(v=>v!=null));
   const min=Math.min(0,...vals), max=Math.max(...vals)*1.08;
   const xs=i=>P.l+(W-P.l-P.r)*i/(T.length-1), ys=v=>H-P.b-(H-P.t-P.b)*(v-min)/(max-min);
   let g="";
-  for(const v of [0,.1,.2,.3]) if(v<max) g+=`<line x1="${P.l}" x2="${W-P.r}" y1="${ys(v)}" y2="${ys(v)}" stroke="${css("--grid")}"/><text x="${P.l-8}" y="${ys(v)+4}" text-anchor="end">${v*100}%</text>`;
+  const gstep=[.005,.01,.02,.05,.1,.2].find(s=>(max-min)/s<=6)||.2;
+  for(let v=Math.ceil(min/gstep)*gstep;v<max;v+=gstep) g+=`<line x1="${P.l}" x2="${W-P.r}" y1="${ys(v)}" y2="${ys(v)}" stroke="${css("--grid")}"/><text x="${P.l-8}" y="${ys(v)+4}" text-anchor="end">${(v*100).toFixed(gstep<.02?1:0)}%</text>`;
   const lines=series.map(([name,k,cv])=>{
     const pts=T.map((t,i)=>t[k]!=null?[xs(i),ys(t[k])]:null).filter(Boolean);
     if(!pts.length) return "";
@@ -442,8 +463,12 @@ function fomoDab(){
       <td class="num ${c}"><b>${sign>0?"−":"+"}${eur(Math.abs(e.impact_eur))}</b></td></tr>`;
   };
   const head=lab=>`<tr><th>Positie</th><th class="num">Verkocht*</th><th class="num">Koers sindsdien</th><th class="num">${lab}</th></tr>`;
-  el("fomo").innerHTML=head("Gemiste winst")+D.fomo.map(e=>row(e,1)).join("");
-  el("dab").innerHTML=head("Vermeden verlies")+D.dab.map(e=>row(e,-1)).join("");
+  const top5=list=>{const vals=list.filter(e=>e.change_pct!=null); return {rows:vals.slice(0,5), more:vals.length-Math.min(5,vals.length)};};
+  const f=top5(D.fomo), d5=top5(D.dab);
+  el("fomo").innerHTML=head("Gemiste winst")+f.rows.map(e=>row(e,1)).join("")+
+    (f.more>0?`<tr><td colspan="4" style="color:var(--muted);font-size:12px">… en nog ${f.more} kleinere (plus de overnames: Ablynx, Zetes, Hornbach)</td></tr>`:"");
+  el("dab").innerHTML=head("Vermeden verlies")+d5.rows.map(e=>row(e,-1)).join("")+
+    (d5.more>0?`<tr><td colspan="4" style="color:var(--muted);font-size:12px">… en nog ${d5.more} kleinere</td></tr>`:"");
 }
 
 /* ---- news & digest ---- */
