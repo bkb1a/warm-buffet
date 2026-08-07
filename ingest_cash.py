@@ -60,10 +60,27 @@ def trade_cash_rows(txns):
     return out
 
 
+def aggregate(rows):
+    """Identical rows (e.g. three separate €10k member deposits on one day)
+    collapse into a single summed row, or the unique key would reject them."""
+    agg = {}
+    for r in rows:
+        key = (r["source"], r["txn_date"], r["kind"], r["amount_eur"], r["description"])
+        agg.setdefault(key, []).append(r)
+    out = []
+    for group in agg.values():
+        r = dict(group[0])
+        if len(group) > 1:
+            r["amount_eur"] = round(sum(g["amount_eur"] for g in group), 2)
+            r["description"] = f"{len(group)}× {r['description']}"[:120]
+        out.append(r)
+    return out
+
+
 def main():
     dry = "--dry-run" in sys.argv
     txns = parse_all()
-    rows = bolero_cash_rows() + trade_cash_rows(txns)
+    rows = aggregate(bolero_cash_rows() + trade_cash_rows(txns))
 
     # seed so that the Bolero-era cumulative equals the known anchor balance
     bolero_rows = [r for r in rows if r["txn_date"] >= BOLERO_START]
