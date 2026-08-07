@@ -34,12 +34,12 @@ STRIP = re.compile(r"\s*-(Stock split|Acquired|right|[Dd]elisted)-\s*$")
 # Corrections & additions confirmed against the Bolero app order history
 # (screenshots 2026-08-07). Overrides win over derived share counts.
 SHARE_OVERRIDES = {("2026-01-13", "BARRICK MINING CORPORATION", "sell"): 77}
-# Orders newer than the xlsx export; amount estimated from the week price.
-# Replace by the real row (and drop these) at the next Bolero xlsx export.
+# Orders newer than the newest xlsx export, confirmed by Andreas; drop each
+# once a Bolero export covers it. Amount = total incl. broker fee + stock tax.
 EXTRA_TXNS = [{"txn_date": "2026-08-07", "side": "buy",
                "holding_name": "ISHAR.III PLC CORE MSCI WORLD KAP",
-               "raw_name": "ISHAR.III PLC CORE MSCI WORLD (app, geschat bedrag)",
-               "shares": 19, "amount_eur": None, "price_eur": None, "source": "bolero"}]
+               "raw_name": "ISHAR.III PLC CORE MSCI WORLD (bevestigd: 19 x 128,42 bruto 2439,98 + 7,50 makelaarsloon + 2,93 beurstaks)",
+               "shares": 19, "amount_eur": 2450.41, "price_eur": 128.9689, "source": "bolero"}]
 
 EXTRA_ALIASES = {
     "Exmar NV": "Exmar NV.",
