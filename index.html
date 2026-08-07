@@ -60,6 +60,8 @@
   .rangebar button { padding:3px 10px; font-size:12.5px; border-radius:99px; border:1px solid transparent; background:transparent; color:var(--ink2); }
   .rangebar button:hover { background:var(--grid); }
   .rangebar button.active { background:var(--s1); color:#fff; font-weight:600; }
+  .nextmeeting { font-size:13px; color:var(--ink2); background:var(--surface); border:1px solid var(--border); border-radius:99px; padding:5px 12px; }
+  .nextmeeting a { color:var(--s1); }
   .newsitem { padding:10px 0; border-bottom:1px solid var(--grid); font-size:13.5px; }
   .newsitem b a { color:var(--ink); text-decoration:none; } .newsitem b a:hover { text-decoration:underline; }
   .newsitem .meta { color:var(--muted); font-size:12px; }
@@ -82,7 +84,7 @@
     <label for="cmp" style="color:var(--ink2);font-size:13px">Vergelijk met:</label>
     <select id="cmp"></select>
     <button id="theme" title="thema">◐</button>
-    <button class="primary" id="rundigest">▶ Nieuwe digest</button>
+    <span id="nextmeeting" class="nextmeeting"></span>
   </div>
 </header>
 
@@ -124,16 +126,17 @@
 
 <div class="panel"><h2>Nieuws per positie</h2><div id="news"></div></div>
 
+<div class="panel" id="wapanel" style="display:none">
+  <h2>📲 Deel via WhatsApp</h2>
+  <textarea id="watext" readonly rows="10" style="width:100%;font:13px/1.45 system-ui,sans-serif;background:var(--page);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:10px;resize:vertical"></textarea>
+  <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+    <button class="primary" id="wacopy">📋 Kopieer</button>
+    <span id="wadone" style="color:var(--good-text);display:none">Gekopieerd ✓</span>
+  </div>
+</div>
+
 <div class="panel"><details class="digest"><summary style="cursor:pointer"><b>Laatste digest</b> <span id="digestmeta" style="color:var(--muted)"></span></summary><div id="digestmd"></div></details></div>
 
-<dialog id="digestdlg">
-  <h2>Data verversen / digest draaien</h2>
-  <p style="margin:10px 0"><b>Cijfers verversen</b> (koersen + grafieken, draait automatisch elke werkdag om 07:30):</p>
-  <p><a href="https://github.com/bkb1a/warm-buffet/actions/workflows/refresh.yml" target="_blank" rel="noopener">→ Start de "Refresh dashboard"-workflow op GitHub</a> (knop "Run workflow")</p>
-  <p style="margin:10px 0"><b>Volledige digest met nieuws</b> (na een nieuwe vergadering) draait via Claude op Andreas' machine:</p>
-  <p><code>claude "/portfolio-digest"</code> → daarna <code>git push</code></p>
-  <button onclick="this.closest('dialog').close()" style="margin-top:10px">Sluiten</button>
-</dialog>
 <div class="tip" id="tip"></div>
 
 <script>
@@ -151,10 +154,16 @@ el("theme").onclick = () => {
   const cur=r.dataset.theme || (dark?"dark":"light");
   r.dataset.theme = cur==="dark" ? "light" : "dark"; render();
 };
-el("rundigest").onclick = () => el("digestdlg").showModal();
+el("wacopy").onclick = () => {
+  navigator.clipboard.writeText(el("watext").value).then(()=>{
+    el("wadone").style.display="inline"; setTimeout(()=>el("wadone").style.display="none",2000);
+  });
+};
 
-let D=null, cmpDate=null;
-fetch("data/dashboard.json").then(r=>r.json()).then(d=>{ D=d; init(); }).catch(()=>{ document.body.insertAdjacentHTML("afterbegin","<p style='color:var(--critical)'>data/dashboard.json niet gevonden — draai export_dashboard.py</p>"); });
+let D=null, cmpDate=null, NEXT=null;
+fetch("data/dashboard.json").then(r=>r.json()).then(d=>{ D=d;
+  return fetch("data/next_meeting.json").then(r=>r.ok?r.json():null).catch(()=>null);
+}).then(nm=>{ NEXT=nm; init(); }).catch(()=>{ document.body.insertAdjacentHTML("afterbegin","<p style='color:var(--critical)'>data/dashboard.json niet gevonden — draai export_dashboard.py</p>"); });
 
 function init(){
   const dates = D.portfolio_totals.map(t=>t.meeting_date);
@@ -163,6 +172,12 @@ function init(){
   el("cmp").onchange = e => { cmpDate=e.target.value; render(); };
   cmpDate = prev;
   el("gendate").textContent = "bijgewerkt " + D.generated_at;
+  if(NEXT && NEXT.next_meeting){
+    const days=Math.round((new Date(NEXT.next_meeting)-new Date())/86400000);
+    el("nextmeeting").innerHTML=`📅 volgende vergadering: <b>${NEXT.next_meeting}</b>${days>=0?` (over ${days} dagen)`:" (verstreken — pas <a href='https://github.com/bkb1a/warm-buffet/edit/main/data/next_meeting.json' target='_blank'>next_meeting.json</a> aan)"}`;
+  } else {
+    el("nextmeeting").innerHTML=`📅 <a href="https://github.com/bkb1a/warm-buffet/edit/main/data/next_meeting.json" target="_blank" rel="noopener">plan de volgende vergadering</a>`;
+  }
   render();
 }
 
@@ -227,8 +242,15 @@ function areaChart(){
   const cut=rangeCutoff(Wk[Wk.length-1].week);
   Wk=Wk.filter(w=>w.week>=cut);
   if(Wk.length<2){ el("areachart").innerHTML="<div class='note'>Te weinig weekdata in deze periode.</div>"; return; }
+  // reserve future slots up to the planned next meeting so it can be plotted
+  let futureSlots=0, nextIdx=null;
+  if(NEXT && NEXT.next_meeting && NEXT.next_meeting>Wk[Wk.length-1].week){
+    futureSlots=Math.min(30,Math.ceil((new Date(NEXT.next_meeting)-new Date(Wk[Wk.length-1].week))/(7*86400000)));
+    nextIdx=Wk.length-1+futureSlots;
+  }
   const W=1080,H=280,P={l:56,r:16,t:16,b:28};
-  const xs=i=>P.l+(W-P.l-P.r)*i/(Wk.length-1);
+  const slots=Wk.length-1+futureSlots;
+  const xs=i=>P.l+(W-P.l-P.r)*i/slots;
   const zoom=!(range==="MAX"||range==="5Y");  // short windows: padded min instead of a zero baseline
   const vmax=Math.max(...Wk.map(w=>w.securities_eur)), vmin=Math.min(...Wk.map(w=>w.securities_eur));
   const min=zoom?Math.max(0,vmin-(vmax-vmin||vmax*.02)*.25):0;
@@ -253,13 +275,15 @@ function areaChart(){
   const every=Math.ceil(tickEntries.length/10);
   const xt=tickEntries.filter((_,i)=>i%every===0).filter(([,i])=>xs(i)<W-46).map(([k,i])=>`<text x="${xs(i)}" y="${H-8}" text-anchor="middle">${k.length===4?k:MND[+k.slice(5,7)-1]+" ’"+k.slice(2,4)}</text>`).join("");
   const last=Wk[Wk.length-1];
-  const lbl=`<text class="lbl" x="${W-P.r}" y="${ys(last.securities_eur)-10}" text-anchor="end">${eur(last.securities_eur)}</text>`;
-  el("leg-area").innerHTML=`<span><span class="chip" style="background:${c1}"></span>Effectenwaarde (wekelijks, week-open/close gemiddelde)</span><span><span class="chip" style="background:${c2};border-radius:99px"></span>Vergadering</span>`;
+  const lbl=`<text class="lbl" x="${xs(Wk.length-1)-(futureSlots?8:0)}" y="${ys(last.securities_eur)-10}" text-anchor="end">${eur(last.securities_eur)}</text>`;
+  const nextMark=nextIdx!=null?`<line x1="${xs(nextIdx)}" x2="${xs(nextIdx)}" y1="${P.t+16}" y2="${H-P.b}" stroke="${c2}" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <text class="lbl" x="${Math.min(xs(nextIdx),W-8)}" y="${H-P.b-8}" text-anchor="end">📅 ${NEXT.next_meeting} </text>`:"";
+  el("leg-area").innerHTML=`<span><span class="chip" style="background:${c1}"></span>Effectenwaarde (wekelijks, week-open/close gemiddelde)</span><span><span class="chip" style="background:${c2};border-radius:99px"></span>Vergadering</span>${nextIdx!=null?`<span style="color:${c2}">┆ geplande vergadering</span>`:""}`;
   el("areachart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">${g}${area}${line}
     <line x1="${P.l}" x2="${W-P.r}" y1="${H-P.b}" y2="${H-P.b}" stroke="${css("--axis")}"/>${xt}
     ${Wk.map((w,i)=>`<rect x="${xs(i)-(W-P.l-P.r)/(Wk.length-1)/2}" y="${P.t}" width="${(W-P.l-P.r)/(Wk.length-1)}" height="${H-P.t-P.b}" fill="transparent"
       onmousemove='showTip(event,"<b>week ${w.week}</b><br>Effecten ${eur(w.securities_eur)}${w.meeting?"<br>📌 vergadering "+w.meeting:""}")' onmouseleave="hideTip()"/>`).join("")}
-    ${marks}${lbl}</svg>`;
+    ${marks}${nextMark}${lbl}</svg>`;
 }
 /* fallback when weekly data is not yet backfilled */
 function areaChartMeetingsOnly(){
@@ -353,6 +377,10 @@ function digest(){
   if(!D.latest_digest){ el("digestmeta").textContent="— nog geen digest"; return; }
   el("digestmeta").textContent=`(${D.latest_digest.period_start} → ${D.latest_digest.period_end})`;
   el("digestmd").innerHTML=mdToHtml(D.latest_digest.markdown_content);
+  if(D.latest_digest.whatsapp){
+    el("wapanel").style.display="block";
+    el("watext").value=D.latest_digest.whatsapp;
+  }
 }
 function mdToHtml(md){
   const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;");

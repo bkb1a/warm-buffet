@@ -210,6 +210,16 @@ def weekly_series(s, holdings, snapshots, totals, txns):
     return out
 
 
+def split_digest(row):
+    """digests.markdown_content may carry a short WhatsApp version after a
+    ---WHATSAPP--- delimiter; split it into its own field for the dashboard."""
+    md = row.get("markdown_content") or ""
+    if "---WHATSAPP---" in md:
+        full, wa = md.split("---WHATSAPP---", 1)
+        return {**row, "markdown_content": full.strip(), "whatsapp": wa.strip()}
+    return {**row, "whatsapp": None}
+
+
 def fx_to_eur():
     rates = {"EUR": 1.0}
     for pair, ccy in (("EURUSD=X", "USD"), ("EURCHF=X", "CHF"), ("EURGBP=X", "GBP")):
@@ -313,7 +323,7 @@ def main():
         "snapshots": snapshots,
         "portfolio_totals": totals,
         "news": news,
-        "latest_digest": digests[0] if digests else None,
+        "latest_digest": split_digest(digests[0]) if digests else None,
         "live_prices_active": live_active,
         "weekly_value": weekly_series(s, holdings, snapshots, totals, txns),
         "fomo": fomo,
