@@ -163,7 +163,7 @@ el("wacopy").onclick = () => {
 let D=null, cmpDate=null, NEXT=null;
 fetch("data/dashboard.json").then(r=>r.json()).then(d=>{ D=d;
   return fetch("data/next_meeting.json").then(r=>r.ok?r.json():null).catch(()=>null);
-}).then(nm=>{ NEXT=nm; init(); }).catch(()=>{ document.body.insertAdjacentHTML("afterbegin","<p style='color:var(--critical)'>data/dashboard.json niet gevonden — draai export_dashboard.py</p>"); });
+}).then(nm=>{ NEXT=nm; init(); }).catch(e=>{ console.error(e); document.body.insertAdjacentHTML("afterbegin",`<p style='color:var(--critical)'>Dashboard kon niet volledig laden: ${e.message||e}</p>`); });
 
 function init(){
   const dates = D.portfolio_totals.map(t=>t.meeting_date);
@@ -345,6 +345,7 @@ function benchChart(){
   for(const v of [0,.1,.2,.3]) if(v<max) g+=`<line x1="${P.l}" x2="${W-P.r}" y1="${ys(v)}" y2="${ys(v)}" stroke="${css("--grid")}"/><text x="${P.l-8}" y="${ys(v)+4}" text-anchor="end">${v*100}%</text>`;
   const lines=series.map(([name,k,cv])=>{
     const pts=T.map((t,i)=>t[k]!=null?[xs(i),ys(t[k])]:null).filter(Boolean);
+    if(!pts.length) return "";
     const p=pts.map((q,i)=>(i?"L":"M")+q[0].toFixed(1)+","+q[1].toFixed(1)).join("");
     const last=pts[pts.length-1];
     return `<path d="${p}" fill="none" stroke="${css(cv)}" stroke-width="2"/><circle cx="${last[0]}" cy="${last[1]}" r="4" fill="${css(cv)}" stroke="${css("--surface")}" stroke-width="2"/><text class="lbl" x="${last[0]+8}" y="${last[1]+4}">${name}</text>`;
