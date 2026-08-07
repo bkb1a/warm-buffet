@@ -409,7 +409,7 @@ function pies(rows,cash){
   stocks.forEach(s=>{const k=(D.sectors||{})[s.holding_name]||"Overig"; bySector[k]=(bySector[k]||0)+(s.value_eur||0);});
   donut("sectorpie",Object.entries(bySector).sort((a,b)=>b[1]-a[1])
     .map(([label,value],i)=>({label,value,color:S[i%S.length]})));
-  const GEO_ORDER=["Noord-Amerika","Europa","Azië-Pacific","Latijns-Amerika","Wereldwijd (grondstof)","Overig"];
+  const GEO_ORDER=["Noord-Amerika","Europa","Azië-Pacific","Latijns-Amerika","Wereldwijd (grondstof)","Afrika & Midden-Oosten","Overig"];
   const byGeo={};
   rows.forEach(s=>{
     const split=(D.geo||{})[s.holding_name]||{"Overig":1};

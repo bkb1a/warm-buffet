@@ -238,9 +238,9 @@ GEO_MAP = {
     "BERKSHIRE HATHAWAY INC. -B-": {"Noord-Amerika": 1.0},
     "BARRICK MINING CORPORATION": {"Noord-Amerika": 1.0},
     "MERCADOLIBRE INC": {"Latijns-Amerika": 1.0},
-    "ISHAR.III PLC CORE MSCI WORLD KAP": {"Noord-Amerika": 0.72, "Europa": 0.17, "Azië-Pacific": 0.10, "Overig": 0.01},
-    "ISHARES PLC CORE MSC E.M.IM UC ET K": {"Azië-Pacific": 0.78, "Latijns-Amerika": 0.08, "Europa": 0.04, "Overig": 0.10},
-    "ISHARES II PLC S&P GLOB. WATER FD D": {"Noord-Amerika": 0.55, "Europa": 0.35, "Azië-Pacific": 0.05, "Overig": 0.05},
+    "ISHAR.III PLC CORE MSCI WORLD KAP": {"Noord-Amerika": 0.72, "Europa": 0.17, "Azië-Pacific": 0.10, "Afrika & Midden-Oosten": 0.01},
+    "ISHARES PLC CORE MSC E.M.IM UC ET K": {"Azië-Pacific": 0.78, "Latijns-Amerika": 0.08, "Europa": 0.04, "Afrika & Midden-Oosten": 0.10},
+    "ISHARES II PLC S&P GLOB. WATER FD D": {"Noord-Amerika": 0.55, "Europa": 0.35, "Azië-Pacific": 0.05, "Afrika & Midden-Oosten": 0.05},
     "XTRACKER SILVER ETC EUR ETC": {"Wereldwijd (grondstof)": 1.0},
 }
 
