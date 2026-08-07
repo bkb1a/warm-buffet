@@ -166,8 +166,9 @@ el("wacopy").onclick = () => {
 };
 
 let D=null, cmpDate=null, NEXT=null;
-fetch("data/dashboard.json").then(r=>r.json()).then(d=>{ D=d;
-  return fetch("data/next_meeting.json").then(r=>r.ok?r.json():null).catch(()=>null);
+const bust="?v="+Math.floor(Date.now()/60000);  // dodge the Pages CDN cache
+fetch("data/dashboard.json"+bust).then(r=>r.json()).then(d=>{ D=d;
+  return fetch("data/next_meeting.json"+bust).then(r=>r.ok?r.json():null).catch(()=>null);
 }).then(nm=>{ NEXT=nm; init(); }).catch(e=>{ console.error(e); document.body.insertAdjacentHTML("afterbegin",`<p style='color:var(--critical)'>Dashboard kon niet volledig laden: ${e.message||e}</p>`); });
 
 function init(){

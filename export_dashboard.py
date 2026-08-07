@@ -213,16 +213,16 @@ def weekly_series(s, holdings, snapshots, totals, txns):
 # Sector per individual stock (ETFs/trackers are shown as one asset class,
 # not by sector). First draft — adjust labels as the club prefers.
 SECTOR_MAP = {
-    "AGEAS NV/SA": "Financiën & verzekeringen",
-    "FLOW TRADERS LTD": "Financiën & verzekeringen",
-    "BERKSHIRE HATHAWAY INC. -B-": "Holdings & conglomeraten",
-    "BREDERODE": "Holdings & conglomeraten",
-    "SOFINA": "Holdings & conglomeraten",
-    "MONTEA NV GVV": "Vastgoed",
-    "NOVO-NORDISK A/S  ADR RKS B": "Gezondheidszorg",
-    "MERCADOLIBRE INC": "Technologie & e-commerce",
-    "BARRICK MINING CORPORATION": "Grondstoffen & mijnbouw",
-    "ARCADIS NV": "Industrie & engineering",
+    "AGEAS NV/SA": "Finance & insurance",
+    "FLOW TRADERS LTD": "Finance & insurance",
+    "BERKSHIRE HATHAWAY INC. -B-": "Holdings",
+    "BREDERODE": "Holdings",
+    "SOFINA": "Holdings",
+    "MONTEA NV GVV": "Real estate",
+    "NOVO-NORDISK A/S  ADR RKS B": "Healthcare",
+    "MERCADOLIBRE INC": "Tech",
+    "BARRICK MINING CORPORATION": "Commodities",
+    "ARCADIS NV": "Industry & Engineering",
 }
 
 BASELINE_WEEK = "2025-07-14"  # sheet: "Rendementen sinds 16/07/2025" (Bolero restart)
