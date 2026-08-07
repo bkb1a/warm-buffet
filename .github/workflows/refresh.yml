@@ -4,6 +4,7 @@ on:
   workflow_dispatch:        # de "▶ Nieuwe data" knop op GitHub
   schedule:
     - cron: "30 5 * * 1-5"  # elke weekdag 05:30 UTC (07:30 Brussel)
+    - cron: "30 7 * * 6"    # zaterdag 09:30 Brussel — zet de tweewekelijkse digest meteen live
 
 permissions:
   contents: write

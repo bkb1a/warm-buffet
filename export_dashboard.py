@@ -210,6 +210,88 @@ def weekly_series(s, holdings, snapshots, totals, txns):
     return out
 
 
+BASELINE_WEEK = "2025-07-14"  # sheet: "Rendementen sinds 16/07/2025" (Bolero restart)
+BOLERO_START = "2025-07-01"   # cash ledger is only anchored from the Bolero era on
+# USD-quoted benchmarks are converted to EUR, like the sheet does
+BENCH_TICKERS = {"^GSPC": ("sp500", "USD"), "URTH": ("msci_world", "USD"),
+                 "^STOXX50E": ("eurostoxx50", None)}
+
+
+def load_cash_ledger(s):
+    """Bolero-era cash ledger rows from Supabase, or rebuilt from the local
+    broker files (absent in CI) as fallback. Returns [] when neither exists.
+    Binck-era rows are excluded: without that era's deposits the running
+    balance would be meaningless."""
+    rows = []
+    try:
+        rows = [{**r, "amount_eur": float(r["amount_eur"])}
+                for r in s.select("cash_ledger", {"select": "txn_date,kind,amount_eur",
+                                                  "order": "txn_date.asc", "limit": "10000"})]
+    except Exception:
+        pass
+    if not rows:
+        try:
+            import ingest_cash
+            rows = sorted(ingest_cash.bolero_cash_rows() +
+                          ingest_cash.trade_cash_rows(ingest_cash.parse_all()),
+                          key=lambda r: r["txn_date"])
+        except Exception:
+            return []
+    return [r for r in rows if r["txn_date"] >= BOLERO_START]
+
+
+def benchmark_series(s, weekly, ledger):
+    """Weekly indexed returns since BASELINE_WEEK for the benchmarks, plus a
+    flow-adjusted (TWR) portfolio return over securities+cash."""
+    rows = select_all(s, "prices_weekly", {"select": "ticker,week_start,avg_price",
+                                           "currency": "in.(IDX,FX)",
+                                           "order": "ticker.asc,week_start.asc"})
+    if not rows:
+        return []
+    px = {}
+    for r in rows:
+        px.setdefault(r["ticker"], {})[r["week_start"]] = float(r["avg_price"])
+
+    def idx_eur(t, ccy, wk):
+        """Benchmark level converted to EUR when USD-quoted (like the sheet)."""
+        v = px.get(t, {}).get(wk)
+        if v is None:
+            return None
+        if ccy == "USD":
+            r = px.get("EURUSD=X", {}).get(wk)
+            return v / r if r else None
+        return v
+
+    from datetime import date, timedelta
+    flows, cum_cash = {}, {}
+    bal = 0.0
+    for r in ledger:
+        d = date.fromisoformat(r["txn_date"])
+        wk = (d - timedelta(days=d.weekday())).isoformat()
+        bal += r["amount_eur"]
+        cum_cash[wk] = bal
+        if r["kind"] in ("deposit", "withdrawal", "seed"):
+            flows[wk] = flows.get(wk, 0.0) + r["amount_eur"]
+
+    out, prev_v, chain, last_cash = [], None, 1.0, 0.0
+    for w in weekly:
+        wk = w["week"]
+        if wk < BASELINE_WEEK:
+            continue
+        last_cash = cum_cash.get(wk, last_cash)
+        v = w["securities_eur"] + last_cash
+        if prev_v and prev_v > 0:
+            chain *= (v - flows.get(wk, 0.0)) / prev_v
+        prev_v = v
+        point = {"week": wk, "portfolio": round(chain - 1, 4) if ledger else None,
+                 "total_eur": round(v, 2)}
+        for t, (key, ccy) in BENCH_TICKERS.items():
+            base, cur = idx_eur(t, ccy, BASELINE_WEEK), idx_eur(t, ccy, wk)
+            point[key] = round(cur / base - 1, 4) if base and cur else None
+        out.append(point)
+    return out
+
+
 def split_digest(row):
     """digests.markdown_content may carry a short WhatsApp version after a
     ---WHATSAPP--- delimiter; split it into its own field for the dashboard."""
@@ -325,7 +407,8 @@ def main():
         "news": news,
         "latest_digest": split_digest(digests[0]) if digests else None,
         "live_prices_active": live_active,
-        "weekly_value": weekly_series(s, holdings, snapshots, totals, txns),
+        "weekly_value": (weekly := weekly_series(s, holdings, snapshots, totals, txns)),
+        "benchmark_series": benchmark_series(s, weekly, load_cash_ledger(s)),
         "fomo": fomo,
         "dab": dab,
     }

@@ -3,17 +3,19 @@
 Meeting-prep dashboard for the investment club. Hosted on GitHub Pages
 (`index.html` + `data/dashboard.json`, fully static — no keys in the repo).
 
-## Refresh flow (before each meeting)
+## Hoe de data leeft (xlsx-vrij sinds aug 2026)
 
-1. Update `Documenten/t Warm Buffet Rendement.xlsx` with the new meeting sheet.
-2. `claude "/portfolio-digest"` — ingests the sheet, gathers news, writes the digest.
-3. `.venv/bin/python export_dashboard.py` — rebuilds `data/dashboard.json`
-   (Supabase data + live prices + FOMO/DAB).
-4. Commit & push `data/dashboard.json` (and `digests/`) — Pages refreshes automatically.
-
-The **▶ Nieuwe digest** button will trigger a GitHub Action (workflow_dispatch)
-once this repo lives on the club's GitHub account; until then it shows the
-manual steps above.
+- **Dagelijks + zaterdag**: GitHub Action `refresh.yml` backfillt weekkoersen &
+  benchmarks en herbouwt `data/dashboard.json` uit Supabase.
+- **Tweewekelijks (za, even weken)**: claude.ai cloud-routine schrijft digest +
+  nieuws naar Supabase en mailt de WhatsApp-versie; de zaterdag-run van de
+  Action zet hem meteen live.
+- **Nieuwe transacties**: Bolero-export in `Documenten/` zetten en
+  `ingest_transactions.py` + `ingest_cash.py` draaien (idempotent).
+- **Nieuwe vergadering**: `materialize_meeting.py --date YYYY-MM-DD` genereert
+  de snapshot uit transacties + weekkoersen + cash ledger — het xlsx-blad is
+  niet meer nodig (`ingest_rendement.py` blijft enkel voor de historiek).
+- **Volgende vergadering plannen**: `data/next_meeting.json` bewerken op GitHub.
 
 ## Dashboard features
 

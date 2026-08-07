@@ -10,6 +10,8 @@ import yfinance as yf
 from common import Supa
 
 FX_PAIRS = {"EURUSD=X": "FX", "EURCHF=X": "FX"}
+# Benchmark indices for the dashboard comparison (stored as currency 'IDX')
+BENCHMARKS = {"^GSPC": "S&P 500", "^STOXX50E": "Eurostoxx 50", "URTH": "MSCI World"}
 BROKEN = {"ROG.SW"}  # Yahoo quote broken; Roche weeks stay empty -> fallback in export
 
 
@@ -27,7 +29,8 @@ def weekly_rows(ticker, start):
         return []
     if hasattr(df.columns, "levels"):  # yfinance MultiIndex columns
         df.columns = df.columns.get_level_values(0)
-    ccy = "FX" if ticker in FX_PAIRS else ticker_currency(ticker)
+    ccy = ("FX" if ticker in FX_PAIRS else
+           "IDX" if ticker in BENCHMARKS else ticker_currency(ticker))
     rows = []
     for idx, r in df.iterrows():
         o, c = r.get("Open"), r.get("Close")
@@ -54,6 +57,7 @@ def main():
         pass
 
     jobs = {p: "2015-08-01" for p in FX_PAIRS}
+    jobs.update({b: "2015-08-01" for b in BENCHMARKS})
     for h in holdings:
         if h["ticker"] and h["ticker"] not in BROKEN:
             jobs[h["ticker"]] = firsts.get(h["name"], "2015-08-01")

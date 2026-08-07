@@ -109,7 +109,7 @@
   <div class="panel"><h2>Gewicht in portefeuille</h2><div id="allocchart"></div></div>
 </div>
 
-<div class="panel"><h2>Rendement vs. benchmarks</h2><div class="legend" id="leg-bench"></div><div id="benchchart"></div><div class="note">Cumulatief rendement zoals bijgehouden in het rendementsblad (recente vergaderingen).</div></div>
+<div class="panel"><h2>Rendement vs. benchmarks</h2><div class="legend" id="leg-bench"></div><div id="benchchart"></div><div class="note">Wekelijks, sinds de herstart bij Bolero (16/07/2025). Portefeuille = tijdgewogen rendement over effecten + cash, gecorrigeerd voor stortingen; USD-indices omgerekend naar EUR.</div></div>
 
 <div class="grid2">
   <div class="panel">
@@ -330,9 +330,13 @@ function allocChart(rows){
 
 /* ---- benchmark lines (4 series, direct-labeled) ---- */
 function benchChart(){
-  const T=D.portfolio_totals.filter(t=>t.return_portfolio!=null);
+  const weekly=(D.benchmark_series||[]).length>=2;
+  const T=weekly?D.benchmark_series:D.portfolio_totals.filter(t=>t.return_portfolio!=null);
   if(T.length<2){ el("benchchart").innerHTML="<div class='note'>Benchmarkdata pas beschikbaar vanaf recente vergaderingen.</div>"; return; }
-  const series=[["Portefeuille","return_portfolio","--s1"],["S&P 500","return_sp500","--s2"],["MSCI World","return_msci_world","--s3"],["Eurostoxx 50","return_eurostoxx50","--s4"]];
+  const series=weekly
+    ?[["Portefeuille","portfolio","--s1"],["S&P 500 (€)","sp500","--s2"],["MSCI World (€)","msci_world","--s3"],["Eurostoxx 50","eurostoxx50","--s4"]]
+    :[["Portefeuille","return_portfolio","--s1"],["S&P 500","return_sp500","--s2"],["MSCI World","return_msci_world","--s3"],["Eurostoxx 50","return_eurostoxx50","--s4"]];
+  T.forEach(t=>{ if(!t.meeting_date) t.meeting_date=t.week; });
   const W=1080,H=240,P={l:52,r:120,t:14,b:26};
   const vals=series.flatMap(([,k])=>T.map(t=>t[k]).filter(v=>v!=null));
   const min=Math.min(0,...vals), max=Math.max(...vals)*1.08;
