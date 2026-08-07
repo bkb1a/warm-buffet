@@ -18,7 +18,7 @@ from datetime import datetime
 import openpyxl
 
 from common import ROOT, Supa
-from ingest_transactions import bolero_date, parse_all
+from ingest_transactions import bolero_date, bolero_file, parse_all
 
 DOCS = ROOT / "Documenten"
 BOLERO_START = "2025-07-01"
@@ -26,8 +26,7 @@ ANCHOR_DATE, ANCHOR_CASH = "2025-10-24", 38810.98  # cash on the 24-10-2025 shee
 
 
 def bolero_cash_rows():
-    ws = openpyxl.load_workbook(DOCS / "Transacties Bolero op 7 aug 2026.xlsx",
-                                data_only=True).active
+    ws = openpyxl.load_workbook(bolero_file(), data_only=True).active
     out = []
     for row in list(ws.iter_rows(values_only=True))[1:]:
         d, _ttype, kind, details, value, _ = row

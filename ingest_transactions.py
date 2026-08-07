@@ -21,6 +21,14 @@ from common import ROOT, Supa
 from ingest_rendement import NAME_MAP
 
 DOCS = ROOT / "Documenten"
+
+
+def bolero_file():
+    """Newest Bolero export in Documenten/ (any 'Transacties Bolero*.xlsx')."""
+    files = sorted(DOCS.glob("Transacties Bolero*.xlsx"), key=lambda p: p.stat().st_mtime)
+    if not files:
+        raise FileNotFoundError("Geen 'Transacties Bolero*.xlsx' in Documenten/")
+    return files[-1]
 STRIP = re.compile(r"\s*-(Stock split|Acquired|right|[Dd]elisted)-\s*$")
 
 # Corrections & additions confirmed against the Bolero app order history
@@ -85,8 +93,7 @@ def bolero_date(v):
 
 
 def parse_bolero(canon_names):
-    ws = openpyxl.load_workbook(DOCS / "Transacties Bolero op 7 aug 2026.xlsx",
-                                data_only=True).active
+    ws = openpyxl.load_workbook(bolero_file(), data_only=True).active
     out = []
     for row in list(ws.iter_rows(values_only=True))[1:]:
         d, ttype, kind, details, value, _ = row
