@@ -210,6 +210,21 @@ def weekly_series(s, holdings, snapshots, totals, txns):
     return out
 
 
+# Sector per individual stock (ETFs/trackers are shown as one asset class,
+# not by sector). First draft — adjust labels as the club prefers.
+SECTOR_MAP = {
+    "AGEAS NV/SA": "Financiën & verzekeringen",
+    "FLOW TRADERS LTD": "Financiën & verzekeringen",
+    "BERKSHIRE HATHAWAY INC. -B-": "Holdings & conglomeraten",
+    "BREDERODE": "Holdings & conglomeraten",
+    "SOFINA": "Holdings & conglomeraten",
+    "MONTEA NV GVV": "Vastgoed",
+    "NOVO-NORDISK A/S  ADR RKS B": "Gezondheidszorg",
+    "MERCADOLIBRE INC": "Technologie & e-commerce",
+    "BARRICK MINING CORPORATION": "Grondstoffen & mijnbouw",
+    "ARCADIS NV": "Industrie & engineering",
+}
+
 BASELINE_WEEK = "2025-07-14"  # sheet: "Rendementen sinds 16/07/2025" (Bolero restart)
 BOLERO_START = "2025-07-01"   # cash ledger is only anchored from the Bolero era on
 # USD-quoted benchmarks are converted to EUR, like the sheet does
@@ -411,6 +426,7 @@ def main():
         "benchmark_series": benchmark_series(s, weekly, load_cash_ledger(s)),
         "fomo": fomo,
         "dab": dab,
+        "sectors": SECTOR_MAP,
     }
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False))

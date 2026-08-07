@@ -9,7 +9,7 @@
     color-scheme: light;
     --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
     --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
-    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7;
     --div-pos:#2a78d6; --div-neg:#e34948;
     --good:#0ca30c; --serious:#ec835a; --critical:#d03b3b; --good-text:#006300;
     --seq-250:#86b6ef; --seq-400:#3987e5; --seq-550:#1c5cab; --seq-700:#0d366b;
@@ -19,7 +19,7 @@
       color-scheme: dark;
       --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
       --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
-      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+      --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9;
       --div-pos:#3987e5; --div-neg:#e66767; --good-text:#0ca30c;
       --seq-250:#6da7ec; --seq-400:#3987e5; --seq-550:#256abf; --seq-700:#184f95;
     }
@@ -28,7 +28,7 @@
     color-scheme: dark;
     --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
     --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
-    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9;
     --div-pos:#3987e5; --div-neg:#e66767; --good-text:#0ca30c;
     --seq-250:#6da7ec; --seq-400:#3987e5; --seq-550:#256abf; --seq-700:#184f95;
   }
@@ -96,6 +96,11 @@
     <div class="rangebar" id="rangebar"></div>
   </div>
   <div class="legend" id="leg-area"></div><div id="areachart"></div>
+</div>
+
+<div class="grid2">
+  <div class="panel"><h2>Activaspreiding</h2><div id="assetpie"></div></div>
+  <div class="panel"><h2>Sectoren (individuele aandelen)</h2><div id="sectorpie"></div></div>
 </div>
 
 <div class="panel">
@@ -219,7 +224,7 @@ function render(){
         <td class="num ${cls(dm)}">${pct(dm)}</td><td class="num ${cls(s.unrealized_pnl_pct)}">${pct(s.unrealized_pnl_pct)}</td></tr>`;
     }).join("");
 
-  areaChart(); divChart(rows,old); allocChart(rows); benchChart(); fomoDab(); newsList(); digest();
+  areaChart(); pies(rows,tot.cash_eur); divChart(rows,old); allocChart(rows); benchChart(); fomoDab(); newsList(); digest();
 }
 
 /* ---- weekly value line with meeting markers ---- */
@@ -355,6 +360,50 @@ function benchChart(){
   el("benchchart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">${g}${lines}${xt}
     ${T.map((t,i)=>`<rect x="${xs(i)-((W-P.l-P.r)/(T.length-1))/2}" y="${P.t}" width="${(W-P.l-P.r)/(T.length-1)}" height="${H-P.t-P.b}" fill="transparent"
       onmousemove='showTip(event,"<b>${t.meeting_date}</b><br>${series.map(([n,k])=>t[k]!=null?n+" "+pct(t[k]):"").filter(Boolean).join("<br>")}")' onmouseleave="hideTip()"/>`).join("")}</svg>`;
+}
+
+/* ---- donuts: activaspreiding & sectoren ---- */
+const ETF_RE=/ISHAR|ISHARES|XTRACKER|VANGUARD/i;
+function donut(elId,data){
+  const total=data.reduce((a,d)=>a+d.value,0);
+  if(!total){ el(elId).innerHTML="<div class='note'>Geen data.</div>"; return; }
+  const W=520,H=240,cx=125,cy=H/2,R=92,r=54,sur=css("--surface");
+  const safe=s=>s.replace(/'/g,"’").replace(/"/g,"&quot;");
+  const pc=f=>(100*f).toFixed(f<0.10?1:0)+"%";
+  let a0=-Math.PI/2, segs="", labels="";
+  data.forEach(d=>{
+    const frac=d.value/total, a1=a0+Math.max(frac,1e-6)*2*Math.PI;
+    const large=frac>.5?1:0;
+    const p=(a,rad)=>[cx+rad*Math.cos(a),cy+rad*Math.sin(a)];
+    const [x0,y0]=p(a0,R),[x1,y1]=p(a1,R),[x2,y2]=p(a1,r),[x3,y3]=p(a0,r);
+    segs+=`<path d="M${x0},${y0} A${R},${R} 0 ${large} 1 ${x1},${y1} L${x2},${y2} A${r},${r} 0 ${large} 0 ${x3},${y3} Z"
+      fill="${d.color}" stroke="${sur}" stroke-width="2"
+      onmousemove='showTip(event,"<b>${safe(d.label)}</b><br>${eur(d.value)} · ${pc(frac)}")' onmouseleave="hideTip()"/>`;
+    if(frac>.05){
+      const [lx,ly]=p((a0+a1)/2,(R+r)/2);
+      labels+=`<text class="lbl" x="${lx}" y="${ly+4}" text-anchor="middle" style="fill:#fff;font-size:11.5px">${pc(frac)}</text>`;
+    }
+    a0=a1;
+  });
+  const leg=data.map((d,i)=>{const y=H/2-data.length*10+20*i+4;
+    return `<circle cx="252" cy="${y-4}" r="5" fill="${d.color}"/>
+    <text x="264" y="${y}" style="fill:var(--ink2)">${safe(d.label)} <tspan style="fill:var(--muted)">${pc(d.value/total)}</tspan></text>`;}).join("");
+  el(elId).innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:560px">${segs}${labels}${leg}
+    <text x="${cx}" y="${cy+5}" text-anchor="middle" class="lbl">${eur(total)}</text></svg>`;
+}
+function pies(rows,cash){
+  const S=[css("--s1"),css("--s2"),css("--s3"),css("--s4"),css("--s5"),css("--s6"),css("--s7")];
+  const stocks=rows.filter(s=>!ETF_RE.test(s.holding_name));
+  const etfs=rows.filter(s=>ETF_RE.test(s.holding_name));
+  donut("assetpie",[
+    {label:"Aandelen",value:stocks.reduce((a,s)=>a+(s.value_eur||0),0),color:S[0]},
+    {label:"ETF's & trackers",value:etfs.reduce((a,s)=>a+(s.value_eur||0),0),color:S[2]},
+    {label:"Cash",value:cash||0,color:css("--muted")},
+  ].filter(d=>d.value>0));
+  const bySector={};
+  stocks.forEach(s=>{const k=(D.sectors||{})[s.holding_name]||"Overig"; bySector[k]=(bySector[k]||0)+(s.value_eur||0);});
+  donut("sectorpie",Object.entries(bySector).sort((a,b)=>b[1]-a[1])
+    .map(([label,value],i)=>({label,value,color:S[i%S.length]})));
 }
 
 /* ---- FOMO / DAB ---- */
