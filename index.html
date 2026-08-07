@@ -46,6 +46,7 @@
   .card .d { font-size:12px; margin-top:2px; color:var(--muted); }
   .panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:20px; overflow-x:auto; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; } @media (max-width:900px){ .grid2{grid-template-columns:1fr} }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; } @media (max-width:1100px){ .grid3{grid-template-columns:1fr} }
   table { border-collapse:collapse; width:100%; font-size:13.5px; }
   th { text-align:left; color:var(--muted); font-weight:500; font-size:12px; border-bottom:1px solid var(--grid); padding:6px 8px; }
   td { padding:6px 8px; border-bottom:1px solid var(--grid); }
@@ -98,9 +99,10 @@
   <div class="legend" id="leg-area"></div><div id="areachart"></div>
 </div>
 
-<div class="grid2">
+<div class="grid3">
   <div class="panel"><h2>Activaspreiding</h2><div id="assetpie"></div></div>
   <div class="panel"><h2>Sectoren (individuele aandelen)</h2><div id="sectorpie"></div></div>
+  <div class="panel"><h2>Geografische spreiding (effecten)</h2><div id="geopie"></div></div>
 </div>
 
 <div class="panel">
@@ -368,7 +370,7 @@ const ETF_RE=/ISHAR|ISHARES|XTRACKER|VANGUARD/i;
 function donut(elId,data){
   const total=data.reduce((a,d)=>a+d.value,0);
   if(!total){ el(elId).innerHTML="<div class='note'>Geen data.</div>"; return; }
-  const W=520,H=240,cx=125,cy=H/2,R=92,r=54,sur=css("--surface");
+  const W=260,H=230,cx=W/2,cy=H/2,R=92,r=54,sur=css("--surface");
   const safe=s=>s.replace(/'/g,"’").replace(/"/g,"&quot;");
   const pc=f=>(100*f).toFixed(f<0.10?1:0)+"%";
   let a0=-Math.PI/2, segs="", labels="";
@@ -386,11 +388,13 @@ function donut(elId,data){
     }
     a0=a1;
   });
-  const leg=data.map((d,i)=>{const y=H/2-data.length*10+20*i+4;
-    return `<circle cx="252" cy="${y-4}" r="5" fill="${d.color}"/>
-    <text x="264" y="${y}" style="fill:var(--ink2)">${safe(d.label)} <tspan style="fill:var(--muted)">${pc(d.value/total)}</tspan></text>`;}).join("");
-  el(elId).innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:560px">${segs}${labels}${leg}
-    <text x="${cx}" y="${cy+5}" text-anchor="middle" class="lbl">${eur(total)}</text></svg>`;
+  const leg=data.map(d=>`<div style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink2)">
+    <span class="chip" style="background:${d.color};border-radius:99px;flex:none"></span>
+    <span>${safe(d.label)} <span style="color:var(--muted)">${pc(d.value/total)}</span></span></div>`).join("");
+  el(elId).innerHTML=`<div style="display:flex;flex-direction:column;align-items:center">
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:250px">${segs}${labels}
+      <text x="${cx}" y="${cy+5}" text-anchor="middle" class="lbl">${eur(total)}</text></svg>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px;align-self:flex-start">${leg}</div></div>`;
 }
 function pies(rows,cash){
   const S=[css("--s1"),css("--s2"),css("--s3"),css("--s4"),css("--s5"),css("--s6"),css("--s7")];
@@ -405,6 +409,14 @@ function pies(rows,cash){
   stocks.forEach(s=>{const k=(D.sectors||{})[s.holding_name]||"Overig"; bySector[k]=(bySector[k]||0)+(s.value_eur||0);});
   donut("sectorpie",Object.entries(bySector).sort((a,b)=>b[1]-a[1])
     .map(([label,value],i)=>({label,value,color:S[i%S.length]})));
+  const GEO_ORDER=["Noord-Amerika","Europa","Azië-Pacific","Latijns-Amerika","Wereldwijd (grondstof)","Overig"];
+  const byGeo={};
+  rows.forEach(s=>{
+    const split=(D.geo||{})[s.holding_name]||{"Overig":1};
+    for(const [reg,f] of Object.entries(split)) byGeo[reg]=(byGeo[reg]||0)+f*(s.value_eur||0);
+  });
+  donut("geopie",GEO_ORDER.filter(r=>byGeo[r]>0)
+    .map((label,i)=>({label,value:byGeo[label],color:label==="Overig"?css("--muted"):S[i%S.length]})));
 }
 
 /* ---- FOMO / DAB ---- */

@@ -225,6 +225,25 @@ SECTOR_MAP = {
     "ARCADIS NV": "Industry & Engineering",
 }
 
+# Geographic split per holding (fractions per continent). Stocks follow the
+# company's home market; ETF splits are approximations of the fund factsheets.
+GEO_MAP = {
+    "AGEAS NV/SA": {"Europa": 1.0},
+    "ARCADIS NV": {"Europa": 1.0},
+    "BREDERODE": {"Europa": 1.0},
+    "FLOW TRADERS LTD": {"Europa": 1.0},
+    "MONTEA NV GVV": {"Europa": 1.0},
+    "SOFINA": {"Europa": 1.0},
+    "NOVO-NORDISK A/S  ADR RKS B": {"Europa": 1.0},
+    "BERKSHIRE HATHAWAY INC. -B-": {"Noord-Amerika": 1.0},
+    "BARRICK MINING CORPORATION": {"Noord-Amerika": 1.0},
+    "MERCADOLIBRE INC": {"Latijns-Amerika": 1.0},
+    "ISHAR.III PLC CORE MSCI WORLD KAP": {"Noord-Amerika": 0.72, "Europa": 0.17, "Azië-Pacific": 0.10, "Overig": 0.01},
+    "ISHARES PLC CORE MSC E.M.IM UC ET K": {"Azië-Pacific": 0.78, "Latijns-Amerika": 0.08, "Europa": 0.04, "Overig": 0.10},
+    "ISHARES II PLC S&P GLOB. WATER FD D": {"Noord-Amerika": 0.55, "Europa": 0.35, "Azië-Pacific": 0.05, "Overig": 0.05},
+    "XTRACKER SILVER ETC EUR ETC": {"Wereldwijd (grondstof)": 1.0},
+}
+
 BASELINE_WEEK = "2025-07-14"  # sheet: "Rendementen sinds 16/07/2025" (Bolero restart)
 BOLERO_START = "2025-07-01"   # cash ledger is only anchored from the Bolero era on
 # USD-quoted benchmarks are converted to EUR, like the sheet does
@@ -427,6 +446,7 @@ def main():
         "fomo": fomo,
         "dab": dab,
         "sectors": SECTOR_MAP,
+        "geo": GEO_MAP,
     }
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(json.dumps(data, ensure_ascii=False))
