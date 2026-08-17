@@ -336,6 +336,24 @@ def split_digest(row):
     return {**row, "whatsapp": None}
 
 
+def latest_digest_row(db_rows):
+    """Prefer the digests table, but fall back to the newest digests/YYYY-MM-DD.md
+    file when it's newer — the cloud digest routine can't reach Supabase (egress
+    proxy blocks the host) and only commits the file."""
+    import glob, os, re
+    db = db_rows[0] if db_rows else None
+    files = sorted(f for f in glob.glob(os.path.join(os.path.dirname(__file__), "digests", "*.md"))
+                   if re.match(r"\d{4}-\d{2}-\d{2}\.md$", os.path.basename(f)))
+    if not files:
+        return db
+    fdate = os.path.basename(files[-1])[:-3]
+    if db and (db.get("generated_at") or "")[:10] >= fdate:
+        return db
+    with open(files[-1], encoding="utf-8") as fh:
+        return {"generated_at": fdate, "period_start": None, "period_end": fdate,
+                "markdown_content": fh.read()}
+
+
 def fx_to_eur():
     rates = {"EUR": 1.0}
     for pair, ccy in (("EURUSD=X", "USD"), ("EURCHF=X", "CHF"), ("EURGBP=X", "GBP")):
@@ -439,7 +457,7 @@ def main():
         "snapshots": snapshots,
         "portfolio_totals": totals,
         "news": news,
-        "latest_digest": split_digest(digests[0]) if digests else None,
+        "latest_digest": (lambda r: split_digest(r) if r else None)(latest_digest_row(digests)),
         "live_prices_active": live_active,
         "weekly_value": (weekly := weekly_series(s, holdings, snapshots, totals, txns)),
         "benchmark_series": benchmark_series(s, weekly, load_cash_ledger(s)),
