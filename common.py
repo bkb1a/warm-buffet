@@ -1,8 +1,27 @@
 """Shared helpers: .env loading + minimal Supabase REST client (PostgREST)."""
 import os
+import time
 from pathlib import Path
 
 import requests
+
+RETRY_STATUS = {502, 503, 504}
+
+
+def _request(method, url, attempts=4, **kw):
+    """requests.request with retries on connection errors / transient 5xx."""
+    for i in range(attempts):
+        try:
+            r = requests.request(method, url, **kw)
+            if r.status_code in RETRY_STATUS and i < attempts - 1:
+                raise requests.ConnectionError(f"HTTP {r.status_code}")
+            return r
+        except (requests.ConnectionError, requests.Timeout) as e:
+            if i == attempts - 1:
+                raise
+            wait = 2 ** i
+            print(f"  [retry {i+1}/{attempts-1}] {method} {url.split('/rest/v1/')[-1]}: {e} — sleeping {wait}s")
+            time.sleep(wait)
 
 ROOT = Path(__file__).parent
 
@@ -28,14 +47,14 @@ class Supa:
                   "Content-Type": "application/json"}
 
     def select(self, table, params=None):
-        r = requests.get(f"{self.base}/{table}", params=params or {}, headers=self.h, timeout=30)
+        r = _request("GET", f"{self.base}/{table}", params=params or {}, headers=self.h, timeout=30)
         r.raise_for_status()
         return r.json()
 
     def upsert(self, table, rows, on_conflict):
         """Insert rows, merging duplicates on the given conflict columns."""
-        r = requests.post(
-            f"{self.base}/{table}",
+        r = _request(
+            "POST", f"{self.base}/{table}",
             params={"on_conflict": on_conflict},
             json=rows,
             headers={**self.h, "Prefer": "resolution=merge-duplicates,return=minimal"},
@@ -44,7 +63,7 @@ class Supa:
             raise RuntimeError(f"{table} upsert failed ({r.status_code}): {r.text[:300]}")
 
     def insert(self, table, rows):
-        r = requests.post(f"{self.base}/{table}", json=rows,
-                          headers={**self.h, "Prefer": "return=representation"}, timeout=60)
+        r = _request("POST", f"{self.base}/{table}", json=rows,
+                     headers={**self.h, "Prefer": "return=representation"}, timeout=60)
         r.raise_for_status()
         return r.json()
