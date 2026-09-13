@@ -242,11 +242,11 @@ m485 -1168 c72 -9 171 -21 220 -27 225 -26 562 -101 795 -177 25 -8 62 -18 83
 <div class="panel">
   <h2>Posities <span style="color:var(--muted);font-weight:400" id="cmp-label"></span></h2>
   <table id="holdings"></table>
-  <div class="note">Δ vergadering = koersverandering t.o.v. de geselecteerde vergadering. “Live” = laatste beurskoers bij export.</div>
+  <div class="note">Δ t.o.v. vergadering = live koers (laatste beurskoers bij export) t.o.v. de koers op de geselecteerde vergadering. Koers/Waarde = stand op de laatste vergadering.</div>
 </div>
 
 <div class="grid2">
-  <div class="panel"><h2>Δ sinds geselecteerde vergadering</h2><div id="divchart"></div></div>
+  <div class="panel"><h2>Δ live t.o.v. geselecteerde vergadering</h2><div id="divchart"></div></div>
   <div class="panel"><h2>Gewicht in portefeuille</h2><div id="allocchart"></div></div>
 </div>
 
@@ -322,10 +322,10 @@ fetch("data/dashboard.json"+bust).then(r=>r.json()).then(d=>{ D=d;
 
 function init(){
   const dates = D.portfolio_totals.map(t=>t.meeting_date);
-  const prev = dates[dates.length-2];
-  el("cmp").innerHTML = dates.slice(0,-1).reverse().map(d=>`<option ${d===prev?"selected":""}>${d}</option>`).join("");
+  const last = dates[dates.length-1];
+  el("cmp").innerHTML = dates.slice().reverse().map(d=>`<option ${d===last?"selected":""}>${d}</option>`).join("");
   el("cmp").onchange = e => { cmpDate=e.target.value; render(); };
-  cmpDate = prev;
+  cmpDate = last;
   el("gendate").textContent = "bijgewerkt " + D.generated_at;
   if(NEXT && NEXT.next_meeting){
     const days=Math.round((new Date(NEXT.next_meeting)-new Date())/86400000);
@@ -336,6 +336,7 @@ function init(){
   render();
 }
 
+function livePrice(s){ const h=D.holdings.find(h=>h.name===s.holding_name); const lp=h&&h.ticker?D.live_prices_active[h.ticker]:null; return lp||s.price||null; }
 function snapsAt(date){ const m={}; D.snapshots.filter(s=>s.meeting_date===date).forEach(s=>m[s.holding_name]=s); return m; }
 
 function render(){
@@ -344,13 +345,18 @@ function render(){
   const tot = D.portfolio_totals[D.portfolio_totals.length-1];
   const cmpTot = D.portfolio_totals.find(t=>t.meeting_date===cmpDate);
   const cur = snapsAt(latest), old = snapsAt(cmpDate);
-  el("cmp-label").textContent = `— ${latest} t.o.v. ${cmpDate}`;
+  el("cmp-label").textContent = `— live (${D.generated_at}) t.o.v. vergadering ${cmpDate}`;
 
-  // stat tiles
-  const dTot = cmpTot && cmpTot.total_value_eur ? tot.total_value_eur/cmpTot.total_value_eur-1 : null;
+  // live securities value: latest positions × latest price (snapshot price as fallback) × fx
+  const liveSec = Object.values(cur).reduce((a,s)=>{ const lp=livePrice(s); const fx=(D.fx_eur||{})[s.currency]??1;
+    return a + (lp&&s.shares ? s.shares*lp*fx : (s.value_eur||0)); },0);
+  const liveTot = liveSec + (tot.cash_eur||0);
+
+  // stat tiles: live total vs selected meeting
+  const dTot = cmpTot && cmpTot.total_value_eur ? liveTot/cmpTot.total_value_eur-1 : null;
   el("cards").innerHTML = [
-    ["Totale portefeuille", eur(tot.total_value_eur), dTot==null?"":`<span class="${cls(dTot)}">${pct(dTot)}</span> vs ${cmpDate}`],
-    ["Effecten", eur(tot.securities_value_eur), ""],
+    ["Totale portefeuille (live)", eur(liveTot), dTot==null?"":`<span class="${cls(dTot)}">${pct(dTot)}</span> vs vergadering ${cmpDate}`],
+    ["Effecten (live)", eur(liveSec), `${eur(tot.securities_value_eur)} op ${latest}`],
     ["Cash", eur(tot.cash_eur), pct(tot.cash_eur/tot.total_value_eur,0)+" van totaal"],
     ["Valuta", (100*tot.eur_exposure).toFixed(0)+"% EUR", (100*tot.usd_exposure).toFixed(0)+"% USD"],
     ["Rendement portefeuille", pct(tot.return_portfolio), `S&amp;P ${pct(tot.return_sp500)} · MSCI ${pct(tot.return_msci_world)}`],
@@ -360,13 +366,13 @@ function render(){
   const rows = Object.values(cur).sort((a,b)=>b.value_eur-a.value_eur);
   const secTotal = rows.reduce((a,s)=>a+(s.value_eur||0),0);
   rows.forEach(s=>{ if(s.weight==null && s.value_eur) s.weight = s.value_eur/secTotal; });
-  el("holdings").innerHTML = `<tr><th>Positie</th><th class="num">Aantal</th><th class="num">Koers</th><th class="num">Live</th><th class="num">Waarde €</th><th class="num">Gewicht</th><th class="num">Δ vergadering</th><th class="num">Δ sinds aankoop</th></tr>` +
+  el("holdings").innerHTML = `<tr><th>Positie</th><th class="num">Aantal</th><th class="num">Koers</th><th class="num">Live</th><th class="num">Waarde €</th><th class="num">Gewicht</th><th class="num">Δ t.o.v. vergadering</th><th class="num">Δ sinds aankoop</th></tr>` +
     rows.map(s=>{
       const h=D.holdings.find(h=>h.name===s.holding_name)||{};
       const live=h.ticker?D.live_prices_active[h.ticker]:null;
       const dl = live&&s.price ? live/s.price-1 : null;
       const o=old[s.holding_name];
-      const dm = o&&o.price&&s.price ? s.price/o.price-1 : null;
+      const dm = o&&o.price ? (live||s.price)/o.price-1 : null;
       return `<tr><td>${s.holding_name}${h.ticker?` <span style="color:var(--muted);font-size:11px">${h.ticker}</span>`:""}</td>
         <td class="num">${s.shares??"—"}</td><td class="num">${s.price??"—"}</td>
         <td class="num">${live?live.toFixed(2):"—"}${dl!=null?` <span class="${cls(dl)}" style="font-size:11px">${pct(dl)}</span>`:""}</td>
@@ -378,7 +384,7 @@ function render(){
 }
 
 /* ---- weekly value line with meeting markers ---- */
-let range="MAX", benchRange="MAX";
+let range="1Y", benchRange="MAX";
 const RANGES={ "1M":30, "3M":91, "6M":182, "YTD":null, "1Y":365, "5Y":1826, "MAX":Infinity };
 function rangeBar(barId,current,setter){
   el(barId).innerHTML=Object.keys(RANGES).map(r=>`<button class="${r===current?"active":""}" onclick="${setter}('${r}')">${r}</button>`).join("");
@@ -459,7 +465,7 @@ function areaChartMeetingsOnly(){
 
 /* ---- diverging bars: Δ vs selected meeting ---- */
 function divChart(rows,old){
-  const data=rows.map(s=>{const o=old[s.holding_name];return {n:s.holding_name,v:o&&o.price&&s.price?s.price/o.price-1:null};}).filter(d=>d.v!=null).sort((a,b)=>b.v-a.v);
+  const data=rows.map(s=>{const o=old[s.holding_name], lp=livePrice(s);return {n:s.holding_name,v:o&&o.price&&lp?lp/o.price-1:null};}).filter(d=>d.v!=null).sort((a,b)=>b.v-a.v);
   if(!data.length){ el("divchart").innerHTML="<div class='note'>Geen overlappende posities met deze vergadering.</div>"; return; }
   const W=chartW("divchart"),rh=24,P={l:8,r:56,t:6,b:6},H=P.t+P.b+data.length*rh;
   const ext=Math.max(...data.map(d=>Math.abs(d.v)))||.01, x0=W/2, sx=v=>x0+v/(ext*1.08)*(W/2-P.r);
