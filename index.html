@@ -469,17 +469,22 @@ function areaChartMeetingsOnly(){
 
 /* ---- diverging bars: Δ vs selected meeting ---- */
 function divChart(rows,old){
-  const data=rows.map(s=>{const o=old[s.holding_name], lp=livePrice(s);return {n:s.holding_name,v:o&&o.price&&lp?lp/o.price-1:null};}).filter(d=>d.v!=null).sort((a,b)=>b.v-a.v);
+  const eurS = n => (n>0?"+":n<0?"−":"") + eur(Math.abs(n));
+  const data=rows.map(s=>{const o=old[s.holding_name], lp=livePrice(s), fx=(D.fx_eur||{})[s.currency]??1;
+    return {n:s.holding_name, v:o&&o.price&&lp?lp/o.price-1:null, a:o&&o.price&&lp&&s.shares?s.shares*(lp-o.price)*fx:null};}).filter(d=>d.v!=null).sort((a,b)=>b.v-a.v);
   if(!data.length){ el("divchart").innerHTML="<div class='note'>Geen overlappende posities met deze vergadering.</div>"; return; }
-  const W=chartW("divchart"),rh=24,P={l:8,r:56,t:6,b:6},H=P.t+P.b+data.length*rh;
+  const totA=data.reduce((a,d)=>a+(d.a||0),0);
+  const W=chartW("divchart"),small=W<520,rh=24,P={l:8,r:small?60:118,t:6,b:6},H=P.t+P.b+data.length*rh;
   const ext=Math.max(...data.map(d=>Math.abs(d.v)))||.01, x0=W/2, sx=v=>x0+v/(ext*1.08)*(W/2-P.r);
+  const lbl=d=>pct(d.v)+(d.a!=null&&!small?` · ${eurS(d.a)}`:"");
   el("divchart").innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%">
     <line x1="${x0}" x2="${x0}" y1="${P.t}" y2="${H-P.b}" stroke="${css("--axis")}"/>
     ${data.map((d,i)=>{const y=P.t+i*rh, pos=d.v>=0, x=Math.min(x0,sx(d.v)), w=Math.max(Math.abs(sx(d.v)-x0),1.5);
-      return `<g onmousemove='showTip(event,"<b>${d.n.replace(/"/g,"&quot;")}</b><br>${pct(d.v)} sinds ${cmpDate}")' onmouseleave="hideTip()">
+      return `<g onmousemove='showTip(event,"<b>${d.n.replace(/"/g,"&quot;")}</b><br>${pct(d.v)} sinds ${cmpDate}${d.a!=null?` · ${eurS(d.a)}`:""}")' onmouseleave="hideTip()">
         <rect x="${x}" y="${y+5}" width="${w}" height="12" rx="4" fill="${pos?css("--div-pos"):css("--div-neg")}"/>
         <text x="${pos?x0-6:x0+6}" y="${y+15}" text-anchor="${pos?"end":"start"}">${d.n.length>26?d.n.slice(0,25)+"…":d.n}</text>
-        <text class="lbl" x="${pos?sx(d.v)+5:sx(d.v)-5}" y="${y+15}" text-anchor="${pos?"start":"end"}">${pct(d.v)}</text></g>`;}).join("")}</svg>`;
+        <text class="lbl" x="${pos?sx(d.v)+5:sx(d.v)-5}" y="${y+15}" text-anchor="${pos?"start":"end"}">${lbl(d)}</text></g>`;}).join("")}</svg>
+    <div class="note">Totaal effecten t.o.v. vergadering ${cmpDate}: <b class="${cls(totA)}">${eurS(totA)}</b> (huidige aantallen × koersverschil, in EUR)</div>`;
 }
 
 /* ---- allocation: sequential single-hue bars ---- */
