@@ -255,7 +255,7 @@ m485 -1168 c72 -9 171 -21 220 -27 225 -26 562 -101 795 -177 25 -8 62 -18 83
   <h2>Posities <span style="color:var(--muted);font-weight:400" id="cmp-label"></span></h2>
   <div id="fxstrip" class="fxstrip"></div>
   <table id="holdings"></table>
-  <div class="note">Koers en Waarde = stand op de laatste vergadering, in de munt van de positie. Live = laatste beurskoers bij export. <b>Δ koers</b> = koersbeweging in eigen munt sinds de geselecteerde vergadering; <b>Δ wissel</b> = beweging van die munt t.o.v. de euro over dezelfde periode; <b>Δ in €</b> = beide samen, de echte verandering van de EUR-waarde. Wisselkoers op een vergadering = weekgemiddelde van die week (Yahoo EURUSD/EURCHF).</div>
+  <div class="note">Koers en Waarde = stand op de laatste vergadering, in de munt van de positie. Live = laatste beurskoers bij export. <b>Δ koers</b> = koersbeweging in eigen munt sinds de geselecteerde vergadering; <b>Δ wissel</b> = beweging van die munt t.o.v. de euro over dezelfde periode; <b>Δ in €</b> = beide samen, de verandering van de EUR-waarde van de huidige aantallen (bedrag en procent). Wisselkoers op een vergadering = weekgemiddelde van die week (Yahoo EURUSD/EURCHF).</div>
 </div>
 
 <div class="grid2">
@@ -423,6 +423,9 @@ function render(){
       const fxO = fxOf(o), fxN = fxNow(s.currency);
       const dfx = s.currency!=="EUR" && fxO && fxN ? fxN/fxO-1 : (s.currency==="EUR" && dm!=null ? 0 : null);
       const dtot = dm!=null && dfx!=null ? (1+dm)*(1+dfx)-1 : null;    // samen = verandering van de EUR-waarde
+      const oldEur = o && o.price && fxO && s.shares ? s.shares*o.price*fxO : null;   // EUR-waarde van de huidige aantallen op de geselecteerde vergadering
+      const dEur = dtot!=null && oldEur!=null ? oldEur*dtot : null;
+      const eurS = n => n==null?"—":(n>0?"+":n<0?"−":"")+eur(Math.abs(n));
       const valCcy = s.shares && px ? s.shares*px : null;
       return `<tr><td>${s.holding_name}${h.ticker?` <span style="color:var(--muted);font-size:11px">${h.ticker}</span>`:""}</td>
         <td>${s.currency||"—"}</td>
@@ -432,7 +435,7 @@ function render(){
         <td class="num">${eur(s.value_eur)}</td><td class="num">${s.weight!=null?pct(s.weight):"—"}</td>
         <td class="num ${cls(dm)}">${pct(dm)}</td>
         <td class="num ${s.currency==="EUR"?"":cls(dfx)}" style="${s.currency==="EUR"?"color:var(--muted)":""}">${s.currency==="EUR"?"—":pct(dfx)}</td>
-        <td class="num ${cls(dtot)}">${pct(dtot)}</td>
+        <td class="num ${cls(dEur)}">${eurS(dEur)}${dtot!=null?` <span style="font-size:11px;opacity:.75">${pct(dtot)}</span>`:""}</td>
         <td class="num ${cls(s.unrealized_pnl_pct)}">${pct(s.unrealized_pnl_pct)}</td></tr>`;
     }).join("");
 
