@@ -21,12 +21,13 @@ jobs:
 
       - run: pip install requests openpyxl yfinance
 
-      - name: Backfill weekly prices + rebuild dashboard.json
+      - name: Backfill weekly prices, book monthly cash, rebuild dashboard.json
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           python backfill_prices.py
+          python monthly_cash.py
           python export_dashboard.py
 
       - name: Commit refreshed data

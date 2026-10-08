@@ -10,6 +10,12 @@ Meeting-prep dashboard for the investment club. Hosted on GitHub Pages
 - **Tweewekelijks (za, even weken)**: claude.ai cloud-routine schrijft digest +
   nieuws naar Supabase en mailt de WhatsApp-versie; de zaterdag-run van de
   Action zet hem meteen live.
+- **Maandelijkse cash**: `monthly_cash.py` boekt op de 1e van elke maand (vanaf
+  nov 2026) de ledenbijdrage (11 × €50) en de rekeningkost (€2,50) in
+  `cash_ledger` (source `schedule`); draait in de Action vóór de export. Zodra een
+  Bolero-export een echte storting voor die maand bevat, verwijdert het script de
+  geplande storting van die maand. Aantal leden/bedragen staan bovenaan het script.
+  Het dashboard toont cash "live" = ledger tot vandaag (`cash_live`).
 - **Nieuwe transacties**: Bolero-export in `Documenten/` zetten en
   `ingest_transactions.py` + `ingest_cash.py` draaien (idempotent).
 - **Nieuwe vergadering**: `materialize_meeting.py --date YYYY-MM-DD` genereert

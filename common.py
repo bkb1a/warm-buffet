@@ -67,3 +67,9 @@ class Supa:
                      headers={**self.h, "Prefer": "return=representation"}, timeout=60)
         r.raise_for_status()
         return r.json()
+
+    def delete(self, table, params):
+        """Delete rows matching PostgREST filters, e.g. {"source": "eq.schedule"}."""
+        r = _request("DELETE", f"{self.base}/{table}", params=params,
+                     headers={**self.h, "Prefer": "return=minimal"}, timeout=60)
+        r.raise_for_status()

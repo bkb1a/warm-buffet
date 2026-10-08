@@ -385,14 +385,15 @@ function render(){
   // live securities value: latest positions × latest price (snapshot price as fallback) × fx
   const liveSec = Object.values(cur).reduce((a,s)=>{ const lp=livePrice(s); const fx=(D.fx_eur||{})[s.currency]??1;
     return a + (lp&&s.shares ? s.shares*lp*fx : (s.value_eur||0)); },0);
-  const liveTot = liveSec + (tot.cash_eur||0);
+  const cashLive = D.cash_live ?? tot.cash_eur;   // ledger vandaag (maandelijkse stortingen/kosten geboekt), anders stand vergadering
+  const liveTot = liveSec + (cashLive||0);
 
   // stat tiles: live total vs selected meeting
   const dTot = cmpTot && cmpTot.total_value_eur ? liveTot/cmpTot.total_value_eur-1 : null;
   el("cards").innerHTML = [
     ["Totale portefeuille (live)", eur(liveTot), dTot==null?"":`<span class="${cls(dTot)}">${pct(dTot)}</span> vs vergadering ${cmpDate}`],
     ["Effecten (live)", eur(liveSec), `${eur(tot.securities_value_eur)} op ${latest}`],
-    ["Cash", eur(tot.cash_eur), pct(tot.cash_eur/tot.total_value_eur,0)+" van totaal"],
+    ["Cash (live)", eur(cashLive), `${pct(cashLive/liveTot,0)} van totaal · ${eur(tot.cash_eur)} op ${latest}`],
     ["Valuta", (100*tot.eur_exposure).toFixed(0)+"% EUR", (100*tot.usd_exposure).toFixed(0)+"% USD"],
     ["Rendement portefeuille", pct(tot.return_portfolio), `S&amp;P ${pct(tot.return_sp500)} · MSCI ${pct(tot.return_msci_world)}`
       + (prevTot ? `<br>sinds ${prevTot.meeting_date}: <span class="${cls(since(prevTot,"return_portfolio"))}">${pct(since(prevTot,"return_portfolio"))}</span> · S&amp;P ${pct(since(prevTot,"return_sp500"))} · MSCI ${pct(since(prevTot,"return_msci_world"))}` : "")],
@@ -449,7 +450,7 @@ function render(){
     return `<span class="fx"><b>EUR/${c}</b> ${(1/n).toFixed(4)}${o?` <span style="color:var(--muted)">(${cmpDate}: ${(1/o).toFixed(4)})</span> · ${c} <span class="${cls(d)}">${pct(d)}</span> t.o.v. EUR`:""} · blootstelling ${eur(exp)}${d!=null?` → effect <span class="${cls(d)}">${(d>0?"+":"−")+eur(Math.abs(exp-exp/(1+d)))}</span>`:""}</span>`;
   }).join("") || "<span class='fx'>Alle posities noteren in EUR.</span>";
 
-  areaChart(); pies(rows,tot.cash_eur); divChart(rows,old); allocChart(rows); benchChart(); fomoDab(); newsList(); digest();
+  areaChart(); pies(rows,cashLive); divChart(rows,old); allocChart(rows); benchChart(); fomoDab(); newsList(); digest();
 }
 
 /* ---- weekly value line with meeting markers ---- */

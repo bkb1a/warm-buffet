@@ -472,7 +472,9 @@ def main():
         "latest_digest": (lambda r: split_digest(r) if r else None)(latest_digest_row(digests)),
         "live_prices_active": live_active,
         "weekly_value": (weekly := weekly_series(s, holdings, snapshots, totals, txns)),
-        "benchmark_series": benchmark_series(s, weekly, load_cash_ledger(s)),
+        "benchmark_series": benchmark_series(s, weekly, (ledger := load_cash_ledger(s))),
+        # cash vandaag volgens de ledger (incl. maandelijkse stortingen/kosten uit monthly_cash.py)
+        "cash_live": round(sum(r["amount_eur"] for r in ledger if r["txn_date"] <= date.today().isoformat()), 2) if ledger else None,
         "fomo": fomo,
         "dab": dab,
         "sectors": SECTOR_MAP,
