@@ -1,4 +1,43 @@
 {
   "next_meeting": "2026-10-08",
-  "_uitleg": "Vul de datum van de volgende geplande vergadering in als YYYY-MM-DD (bv. \"2026-11-06\"). Dit bestand mag je rechtstreeks op GitHub bewerken (potlood-icoon); het dashboard en de grafiek pikken het automatisch op."
+  "_uitleg": "Vul de datum van de volgende geplande vergadering in als YYYY-MM-DD (bv. \"2026-11-06\"). Dit bestand mag je rechtstreeks op GitHub bewerken (potlood-icoon); het dashboard en de grafiek pikken het automatisch op.",
+  "programma": [
+    {
+      "maand": "2026-10",
+      "helft": 1,
+      "topics": [
+        "Gereglementeerde vastgoedvennootschappen",
+        "Meerwaardebelasting → drukken op opt-out"
+      ]
+    },
+    {
+      "maand": "2027-01",
+      "helft": null,
+      "topics": [
+        "Opties"
+      ]
+    },
+    {
+      "maand": "2027-03",
+      "helft": 2,
+      "topics": [
+        "Financial literacy"
+      ]
+    },
+    {
+      "maand": "2027-06",
+      "helft": 1,
+      "topics": [
+        "Goud en zilver"
+      ]
+    },
+    {
+      "maand": "2027-08",
+      "helft": 2,
+      "topics": [
+        "Financial literacy"
+      ]
+    }
+  ],
+  "_uitleg_programma": "Onderwerpen van de algemene presentatie aan het begin van elke vergadering. maand = YYYY-MM, helft = 1 (eerste helft van de maand), 2 (tweede helft) of null (nog niet vastgelegd). Voeg items toe of pas ze aan; het dashboard toont ze bovenaan en dimt wat voorbij is."
 }
