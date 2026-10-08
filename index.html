@@ -344,6 +344,9 @@ function render(){
   const latest = dates[dates.length-1];
   const tot = D.portfolio_totals[D.portfolio_totals.length-1];
   const cmpTot = D.portfolio_totals.find(t=>t.meeting_date===cmpDate);
+  // rendement sinds vorige vergadering: cumulatieve (tijdgewogen) rendementen ontkoppelen
+  const prevTot = D.portfolio_totals[D.portfolio_totals.length-2] || null;
+  const since = (p,k) => (tot[k]!=null && p[k]!=null) ? (1+tot[k])/(1+p[k])-1 : null;
   const cur = snapsAt(latest), old = snapsAt(cmpDate);
   el("cmp-label").textContent = `— live (${D.generated_at}) t.o.v. vergadering ${cmpDate}`;
 
@@ -359,7 +362,8 @@ function render(){
     ["Effecten (live)", eur(liveSec), `${eur(tot.securities_value_eur)} op ${latest}`],
     ["Cash", eur(tot.cash_eur), pct(tot.cash_eur/tot.total_value_eur,0)+" van totaal"],
     ["Valuta", (100*tot.eur_exposure).toFixed(0)+"% EUR", (100*tot.usd_exposure).toFixed(0)+"% USD"],
-    ["Rendement portefeuille", pct(tot.return_portfolio), `S&amp;P ${pct(tot.return_sp500)} · MSCI ${pct(tot.return_msci_world)}`],
+    ["Rendement portefeuille", pct(tot.return_portfolio), `S&amp;P ${pct(tot.return_sp500)} · MSCI ${pct(tot.return_msci_world)}`
+      + (prevTot ? `<br>sinds ${prevTot.meeting_date}: <span class="${cls(since(prevTot,"return_portfolio"))}">${pct(since(prevTot,"return_portfolio"))}</span> · S&amp;P ${pct(since(prevTot,"return_sp500"))} · MSCI ${pct(since(prevTot,"return_msci_world"))}` : "")],
   ].map(([k,v,d])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join("");
 
   // holdings table
