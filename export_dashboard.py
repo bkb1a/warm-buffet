@@ -130,6 +130,17 @@ def build_timeline(snapshots, totals, txns):
     return points
 
 
+def fx_weekly(s):
+    """Weekly EUR->ccy rates (1 EUR = x ccy) from prices_weekly, for the dashboard's
+    FX-effect split per position: {"USD": {"2026-08-03": 1.15, ...}, "CHF": {...}}."""
+    rows = select_all(s, "prices_weekly", {"select": "ticker,week_start,avg_price",
+                                           "ticker": "in.(EURUSD=X,EURCHF=X)", "order": "week_start.asc"})
+    out = {"USD": {}, "CHF": {}}
+    for r in rows:
+        out["USD" if r["ticker"] == "EURUSD=X" else "CHF"][r["week_start"]] = round(float(r["avg_price"]), 5)
+    return out
+
+
 def weekly_series(s, holdings, snapshots, totals, txns):
     """Continuous weekly securities value in EUR: for each week, the shares
     held at the most recent meeting x that week's avg price (split-corrected,
@@ -453,6 +464,7 @@ def main():
     data = {
         "generated_at": date.today().isoformat(),
         "fx_eur": fx,
+        "fx_weekly": fx_weekly(s),
         "holdings": holdings,
         "snapshots": snapshots,
         "portfolio_totals": totals,

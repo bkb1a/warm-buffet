@@ -45,13 +45,14 @@
   .card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
   .card .k { font-size:12px; color:var(--ink2); } .card .v { font-size:24px; font-weight:650; margin-top:2px; }
   .card .d { font-size:12px; margin-top:2px; color:var(--muted); }
+  .fxstrip { display:flex; flex-wrap:wrap; gap:8px 18px; font-size:13px; margin:-4px 0 10px; } .fxstrip .fx { font-variant-numeric:tabular-nums; }
   .panel { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:20px; overflow-x:auto; }
   .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; } @media (max-width:900px){ .grid2{grid-template-columns:1fr} }
   .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; } @media (max-width:1100px){ .grid3{grid-template-columns:1fr} }
   table { border-collapse:collapse; width:100%; font-size:13.5px; }
   th { text-align:left; color:var(--muted); font-weight:500; font-size:12px; border-bottom:1px solid var(--grid); padding:6px 8px; }
   td { padding:6px 8px; border-bottom:1px solid var(--grid); }
-  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .pos { color:var(--good-text); } .neg { color:var(--critical); }
   .chip { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:baseline; }
   svg text { font:12px system-ui,sans-serif; fill:var(--muted); }
@@ -241,8 +242,9 @@ m485 -1168 c72 -9 171 -21 220 -27 225 -26 562 -101 795 -177 25 -8 62 -18 83
 
 <div class="panel">
   <h2>Posities <span style="color:var(--muted);font-weight:400" id="cmp-label"></span></h2>
+  <div id="fxstrip" class="fxstrip"></div>
   <table id="holdings"></table>
-  <div class="note">Δ t.o.v. vergadering = live koers (laatste beurskoers bij export) t.o.v. de koers op de geselecteerde vergadering. Koers/Waarde = stand op de laatste vergadering.</div>
+  <div class="note">Koers en Waarde = stand op de laatste vergadering, in de munt van de positie. Live = laatste beurskoers bij export. <b>Δ koers</b> = koersbeweging in eigen munt sinds de geselecteerde vergadering; <b>Δ wissel</b> = beweging van die munt t.o.v. de euro over dezelfde periode; <b>Δ in €</b> = beide samen, de echte verandering van de EUR-waarde. Wisselkoers op een vergadering = weekgemiddelde van die week (Yahoo EURUSD/EURCHF).</div>
 </div>
 
 <div class="grid2">
@@ -366,23 +368,53 @@ function render(){
       + (prevTot ? `<br>sinds ${prevTot.meeting_date}: <span class="${cls(since(prevTot,"return_portfolio"))}">${pct(since(prevTot,"return_portfolio"))}</span> · S&amp;P ${pct(since(prevTot,"return_sp500"))} · MSCI ${pct(since(prevTot,"return_msci_world"))}` : "")],
   ].map(([k,v,d])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join("");
 
-  // holdings table
+  // holdings table — koers in eigen munt, waarde in munt én EUR, en Δ gesplitst in koers- en wisselkoerseffect
   const rows = Object.values(cur).sort((a,b)=>b.value_eur-a.value_eur);
   const secTotal = rows.reduce((a,s)=>a+(s.value_eur||0),0);
   rows.forEach(s=>{ if(s.weight==null && s.value_eur) s.weight = s.value_eur/secTotal; });
-  el("holdings").innerHTML = `<tr><th>Positie</th><th class="num">Aantal</th><th class="num">Koers</th><th class="num">Live</th><th class="num">Waarde €</th><th class="num">Gewicht</th><th class="num">Δ t.o.v. vergadering</th><th class="num">Δ sinds aankoop</th></tr>` +
+  // EUR-waarde van 1 munt op de geselecteerde vergadering: echte weekkoers (fx_weekly, 1 EUR = x munt) van de week van die vergadering;
+  // valt terug op de mediaan van de impliciete koersen in de snapshot (waarde € ÷ aantal × koers)
+  const fxAt = (c,date) => { const w=(D.fx_weekly||{})[c]; if(!w) return null;
+    const ks=Object.keys(w).filter(k=>k<=date).sort(); return ks.length ? 1/w[ks[ks.length-1]] : null; };
+  const fxImplied = c => { const v=Object.values(old).filter(s=>s.currency===c&&s.shares&&s.price&&s.value_eur).map(s=>s.value_eur/(s.shares*s.price)).sort((a,b)=>a-b);
+    return v.length ? v[Math.floor(v.length/2)] : null; };
+  const fxOf = s => s ? (fxAt(s.currency,cmpDate) ?? fxImplied(s.currency)) : null;
+  const fxNow = c => (D.fx_eur||{})[c] ?? (c==="EUR"?1:null);
+  const money = (n,c) => n==null?"—":n.toLocaleString("nl-BE",{maximumFractionDigits:0})+" "+c;
+  const SYM = {USD:"$",CHF:"CHF",GBP:"£",EUR:"€"};
+  el("holdings").innerHTML = `<tr><th>Positie</th><th>Munt</th><th class="num">Aantal</th><th class="num">Koers</th><th class="num">Live</th><th class="num">Waarde in munt</th><th class="num">Waarde €</th><th class="num">Gewicht</th><th class="num">Δ koers</th><th class="num">Δ wissel</th><th class="num">Δ in €</th><th class="num">Δ sinds aankoop</th></tr>` +
     rows.map(s=>{
       const h=D.holdings.find(h=>h.name===s.holding_name)||{};
       const live=h.ticker?D.live_prices_active[h.ticker]:null;
       const dl = live&&s.price ? live/s.price-1 : null;
       const o=old[s.holding_name];
-      const dm = o&&o.price ? (live||s.price)/o.price-1 : null;
+      const px = live||s.price;
+      const dm = o&&o.price ? px/o.price-1 : null;                       // koerseffect in eigen munt
+      const fxO = fxOf(o), fxN = fxNow(s.currency);
+      const dfx = s.currency!=="EUR" && fxO && fxN ? fxN/fxO-1 : (s.currency==="EUR" && dm!=null ? 0 : null);
+      const dtot = dm!=null && dfx!=null ? (1+dm)*(1+dfx)-1 : null;    // samen = verandering van de EUR-waarde
+      const valCcy = s.shares && px ? s.shares*px : null;
       return `<tr><td>${s.holding_name}${h.ticker?` <span style="color:var(--muted);font-size:11px">${h.ticker}</span>`:""}</td>
+        <td>${s.currency||"—"}</td>
         <td class="num">${s.shares??"—"}</td><td class="num">${s.price??"—"}</td>
         <td class="num">${live?live.toFixed(2):"—"}${dl!=null?` <span class="${cls(dl)}" style="font-size:11px">${pct(dl)}</span>`:""}</td>
+        <td class="num">${money(valCcy, SYM[s.currency]||s.currency||"")}</td>
         <td class="num">${eur(s.value_eur)}</td><td class="num">${s.weight!=null?pct(s.weight):"—"}</td>
-        <td class="num ${cls(dm)}">${pct(dm)}</td><td class="num ${cls(s.unrealized_pnl_pct)}">${pct(s.unrealized_pnl_pct)}</td></tr>`;
+        <td class="num ${cls(dm)}">${pct(dm)}</td>
+        <td class="num ${s.currency==="EUR"?"":cls(dfx)}" style="${s.currency==="EUR"?"color:var(--muted)":""}">${s.currency==="EUR"?"—":pct(dfx)}</td>
+        <td class="num ${cls(dtot)}">${pct(dtot)}</td>
+        <td class="num ${cls(s.unrealized_pnl_pct)}">${pct(s.unrealized_pnl_pct)}</td></tr>`;
     }).join("");
+
+  // wisselkoersstrook: 1 EUR in vreemde munt, nu vs. geselecteerde vergadering (impliciet uit de snapshot)
+  const ccys=[...new Set(rows.map(s=>s.currency).filter(c=>c&&c!=="EUR"))];
+  el("fxstrip").innerHTML = ccys.map(c=>{
+    const n=fxNow(c); const o=fxAt(c,cmpDate) ?? fxImplied(c);
+    if(!n) return "";
+    const d = o ? n/o-1 : null;   // EUR-waarde van 1 munt: stijgt = munt sterker = goed voor ons
+    const exp = rows.filter(s=>s.currency===c).reduce((a,s)=>a+(s.value_eur||0),0);
+    return `<span class="fx"><b>EUR/${c}</b> ${(1/n).toFixed(4)}${o?` <span style="color:var(--muted)">(${cmpDate}: ${(1/o).toFixed(4)})</span> · ${c} <span class="${cls(d)}">${pct(d)}</span> t.o.v. EUR`:""} · blootstelling ${eur(exp)}${d!=null?` → effect <span class="${cls(d)}">${(d>0?"+":"−")+eur(Math.abs(exp-exp/(1+d)))}</span>`:""}</span>`;
+  }).join("") || "<span class='fx'>Alle posities noteren in EUR.</span>";
 
   areaChart(); pies(rows,tot.cash_eur); divChart(rows,old); allocChart(rows); benchChart(); fomoDab(); newsList(); digest();
 }
