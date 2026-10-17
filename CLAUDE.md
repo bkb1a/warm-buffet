@@ -33,6 +33,23 @@ benchmark returns), `news_items`, `digests`.
 .venv/bin/python ingest_rendement.py             # ingest into Supabase
 ```
 
+## Thematic holdings (news coverage)
+
+For these, the digest should cover the underlying theme/sector rather than a
+single company (per the digest step "for thematic ETFs/ETCs cover the theme,
+e.g. silver price for a silver ETC"). Broad index ETFs (iShares Core MSCI
+World, iShares Core MSCI EM IMI) are skipped entirely, not covered thematically.
+
+- `iShares S&P Global Water` (IH2O.MI) — water scarcity / water utilities theme.
+- `Xtrackers Silver ETC` (XAD6.DE) — silver spot price.
+- **Global X Data Center REITs & Digital Infrastructure UCITS ETF**, ticker
+  `V9N` (Xetra) / `VPN` (LSE), ISIN `IE00BMH5Y327` — data center REITs /
+  digital infrastructure theme. Bought 14 Oct 2026: 285 shares @ €21.93,
+  €6.287,55 total incl. fees. Not yet in any meeting sheet or ingested into
+  Supabase as of this writing (purchases only enter the system via a meeting
+  sheet + `ingest_rendement.py`, not live trade confirmations) — once it
+  shows up in `holdings`/`snapshots`, treat it as thematic per this entry.
+
 ## Caveats
 
 - `unrealized_pnl_pct` is a fraction in recent sheets, percent units pre-2016.
